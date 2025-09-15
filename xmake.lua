@@ -6,11 +6,11 @@ includes("**/xmake.lua")
 add_rules("mode.debug", "mode.release")
 
 -- dependencies
-add_requires("glfw", "glm", "spdlog", "stb")
+add_requires("entt", "glfw", "glm", "spdlog", "stb")
 
 target("mountblade-clone")
     set_kind("binary")
     add_files("mb/*.cpp")
     add_deps("glad")
-    add_packages("glfw", "glm", "spdlog", "stb")
+    add_packages("entt", "glfw", "glm", "spdlog", "stb")
     add_includedirs(".")
