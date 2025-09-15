@@ -74,7 +74,7 @@ void App::run()
 void App::init_entities()
 {
     auto entity = registry_.create();
-    registry_.emplace<Position>(entity, 1, 1, 2);
+    registry_.emplace<Position>(entity, 1., 1., 2.);
 }
 
 void App::ai_system(double dt)
