@@ -4,7 +4,7 @@
 int main()
 {
     try {
-        App app(1280, 720, "Mount & Blade Clone");
+        App app(1920, 1080, "Mount & Blade Clone");
         app.run();
     }
     catch (std::exception const &e) {
