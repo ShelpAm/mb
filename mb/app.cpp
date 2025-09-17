@@ -48,6 +48,7 @@ void App::init_window(int width, int height, std::string const &title)
     if (window_ == nullptr) {
         throw std::runtime_error("Failed to create window");
     }
+    glfwMakeContextCurrent(window_); // OpenGL context
 
     // GLAD
     int version = gladLoadGL(glfwGetProcAddress);
@@ -58,8 +59,7 @@ void App::init_window(int width, int height, std::string const &title)
     spdlog::info("Loaded OpenGL {}.{}", GLAD_VERSION_MAJOR(version),
                  GLAD_VERSION_MINOR(version));
 
-    glfwMakeContextCurrent(window_); // OpenGL context
-    glfwSwapInterval(1);             // V-sync
+    glfwSwapInterval(1); // V-sync
     // 4x MSAA
     glfwWindowHint(GLFW_SAMPLES, 4);
     glEnable(GL_MULTISAMPLE);
