@@ -81,13 +81,15 @@ void App::main_loop()
         double now = glfwGetTime();
         double dt = now - last_frame;
         last_frame = now;
-        spdlog::info("fps={}", 1. / dt);
-        // ai_system(registry);
-        // movement_system(registry, static_cast<float>(dt));
+        auto fps = 1. / dt;
+        spdlog::debug("fps={}", fps);
+        ai_system(registry, static_cast<float>(dt));
+        movement_system(registry, static_cast<float>(dt));
+        collision_system(registry, static_cast<float>(now));
 
         glClearColor(0.2F, 0.3F, 0.3F, 1.0F);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // render_system(registry, static_cast<float>(now), view_, proj_);
+        render_system(registry, static_cast<float>(now), view_, proj_);
         glfwSwapBuffers(window_);
     }
     spdlog::info("Exited from main loop");
@@ -98,25 +100,30 @@ void App::run()
     main_loop();
 }
 
-void App::init_entities(entt::registry &registry)
+void App::init_entities(entt::registry &reg)
 {
     std::vector<float> vertices{-1, 0, -1, 1, 0, 1, 0, 0, 1};
     std::vector<std::uint32_t> indices{0, 1, 2};
     auto triangle = std::make_shared<Mesh>(vertices, indices);
 
     // Init me
-    registry.emplace<Position>(me_, glm::vec3{0., 0., 0.});
-    registry.emplace<Renderable>(
+    reg.emplace<Position>(me_, glm::vec3{0., 0., 0.});
+    reg.emplace<Velocity>(me_, Velocity{.dir = {0., 0., 0.}, .speed = 25});
+    std::vector<Troop_stack> myarmy;
+    myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
+    reg.emplace<Army>(me_, Army{.stacks = myarmy});
+    reg.emplace<Renderable>(
         me_, Renderable{.mesh = triangle, .shader = shader_.get()});
 
     // Init armies
-    auto entity = registry.create();
-    registry.emplace<Ai_tag>(entity);
+    auto entity = reg.create();
+    reg.emplace<Ai_tag>(entity);
     std::vector<Troop_stack> army;
     army.push_back(Troop_stack{.size = 3, .troop_id = -1UZ});
-    registry.emplace<Army>(entity, army);
-    registry.emplace<Position>(entity, glm::vec3{10, 0, 15});
-    registry.emplace<Renderable>(
+    reg.emplace<Army>(entity, Army{.stacks = army});
+    reg.emplace<Position>(entity, glm::vec3{10, 0, 15});
+    reg.emplace<Velocity>(entity, Velocity{.dir = {0., 0., 0.}, .speed = 20});
+    reg.emplace<Renderable>(
         entity, Renderable{.mesh = triangle, .shader = shader_.get()});
 }
 

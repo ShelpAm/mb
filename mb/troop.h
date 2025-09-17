@@ -13,5 +13,4 @@ struct Troop_stack {
 
 struct Army {
     std::vector<Troop_stack> stacks; // 例如 [100步兵, 50骑兵]
-    int owner_id;
 };
