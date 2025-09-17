@@ -25,14 +25,17 @@ class App {
   private:
     void init_window(int width, int height, std::string const &title);
     static void init_opengl();
-    void init_entities();
+    void init_entities(entt::registry &registry);
     void main_loop();
+    void input(int button, int action, int mods);
 
     GLFWwindow *window_ = nullptr;
+    std::unique_ptr<Shader_program> shader_;
     int width_;
     int height_;
     float fwidth_;
     float fheight_;
+    float const fovy_{glm::radians(45.F)};
     float const znear;
     float const zfar;
 
@@ -40,4 +43,6 @@ class App {
 
     glm::mat4 view_;
     glm::mat4 proj_;
+
+    entt::entity me_;
 };
