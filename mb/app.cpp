@@ -99,7 +99,6 @@ void App::run()
 {
     main_loop();
 }
-
 void App::init_entities(entt::registry &reg)
 {
     std::vector<float> vertices{-1, 0, -1, 1, 0, 1, 0, 0, 1};
