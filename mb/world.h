@@ -24,7 +24,7 @@ struct Velocity {
     float speed;
 };
 
-struct Renderable { // Use shared_ptr here? TODO
+struct Renderable {
     std::shared_ptr<Mesh> mesh;
     Shader_program const *shader;
 };
@@ -32,7 +32,7 @@ struct Renderable { // Use shared_ptr here? TODO
 struct Ai_tag {};
 
 struct Ai_cooldown {
-    float timer = 0.0f; // seconds until next decision
+    float timer = 0.0F; // seconds until next decision
 };
 
 class World {
@@ -75,7 +75,7 @@ inline void ai_system(entt::registry &registry, float dt)
                 std::random_device rd;
                 std::mt19937 gen(rd());
                 std::uniform_real_distribution<float> dist_x(0.0F, 90.0F);
-                std::uniform_real_distribution<float> dist_y(0.0F, 0.0F);
+                std::uniform_real_distribution<float> dist_y(30.0F, 50.0F);
                 std::uniform_real_distribution<float> dist_z(0.0F, 60.0F);
                 glm::vec3 random_pos{dist_x(gen), dist_y(gen), dist_z(gen)};
                 registry.emplace<Pathing>(entity, random_pos);
@@ -105,7 +105,10 @@ inline void movement_system(entt::registry &registry, float dt)
     // Moves those have velocity to their direction.
     auto moveables = registry.view<Position, Velocity>().each();
     for (auto [entity, pos, vel] : moveables) {
-        pos.value += vel.dir * vel.speed * dt;
+        if (glm::length(vel.dir) < 1e-5) { // Regarded as still
+            continue;
+        }
+        pos.value += glm::normalize(vel.dir) * vel.speed * dt;
         auto p = pos.value;
         spdlog::debug("entity {} pos={},{},{}",
                       static_cast<std::size_t>(entity), p.x, p.y, p.z);
@@ -148,9 +151,30 @@ inline void collision_system(entt::registry &registry, float now)
     }
 }
 
-inline void render_system(entt::registry &registry, float now,
-                          glm::mat4 const &view, glm::mat4 const &proj)
+inline entt::entity get_active_camera(entt::registry &reg)
 {
+    for (auto [entity, cam] : reg.view<Camera>().each()) {
+        if (cam.is_active) {
+            return entity;
+        }
+    }
+    throw std::runtime_error("couldn't find active camera");
+}
+
+inline glm::mat4 get_active_view_mat(entt::registry &reg)
+{
+    for (auto [entity, cam, pos] : reg.view<Camera, Position>().each()) {
+        if (cam.is_active) {
+            return cam.calc_view_matrix(pos.value);
+        }
+    }
+    throw std::runtime_error("couldn't find active camera");
+}
+
+inline void render_system(entt::registry &registry, float now,
+                          glm::mat4 const &proj)
+{
+    auto view = get_active_view_mat(registry);
 
     auto renderables = registry.view<Renderable, Position>();
     for (auto [entity, renderable, pos] : renderables.each()) {
