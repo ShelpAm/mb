@@ -15,6 +15,11 @@ namespace fs = std::filesystem;
 
 class Shader_program {
   public:
+    Shader_program(Shader_program const &) = delete;
+    Shader_program(Shader_program &&) = delete;
+    Shader_program &operator=(Shader_program const &) = delete;
+    Shader_program &operator=(Shader_program &&) = delete;
+
     Shader_program(fs::path const &vert, fs::path const &frag)
         : program_(glCreateProgram())
     {
@@ -45,14 +50,14 @@ class Shader_program {
         return program_;
     }
 
-    void uniform_mat4(std::string const &name, glm::mat4 const &mat)
+    void uniform_mat4(std::string const &name, glm::mat4 const &mat) const
     {
         use_program();
         GLint location = fetch_location(name);
         glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
     }
 
-    void uniform_1f(std::string const &name, float value)
+    void uniform_1f(std::string const &name, float value) const
     {
         use_program();
         GLint location = fetch_location(name);
@@ -63,7 +68,7 @@ class Shader_program {
     static constexpr auto log_buf_size{512UZ};
     std::array<char, log_buf_size> info_log{};
     GLuint program_;
-    std::unordered_map<std::string, GLint> location_;
+    mutable std::unordered_map<std::string, GLint> location_;
 
     static std::string read_file(fs::path const &path)
     {
@@ -124,7 +129,7 @@ class Shader_program {
                                                  std::string_view(info_log)));
         }
     }
-    GLint fetch_location(std::string const &name)
+    GLint fetch_location(std::string const &name) const
     {
         if (!location_.contains(name)) {
             location_.insert(
