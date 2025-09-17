@@ -35,13 +35,6 @@ struct Ai_cooldown {
     float timer = 0.0F; // seconds until next decision
 };
 
-struct Renderable { // Use shared_ptr here? TODO
-    std::shared_ptr<Mesh> mesh;
-    Shader_program const *shader;
-};
-
-struct Ai_tag {};
-
 class World {
   public:
     static entt::registry &registry()
