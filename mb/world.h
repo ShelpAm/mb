@@ -32,7 +32,7 @@ struct Renderable { // Use shared_ptr here? TODO
 struct Ai_tag {};
 
 struct Ai_cooldown {
-    float timer = 0.0f; // seconds until next decision
+    float timer = 0.0F; // seconds until next decision
 };
 
 struct Renderable { // Use shared_ptr here? TODO
