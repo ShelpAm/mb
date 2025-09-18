@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 
+// =======TROOP=========
+
 struct Troop {
     int armor;
     int weapon_damage;

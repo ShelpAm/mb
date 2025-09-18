@@ -1,39 +1,38 @@
 #version 460 core
 
-in  vec3 fragPos;                     // now holds model-space coords
+in vec3 LocalPos;
+in vec3 FragPos;
+in vec3 FragNormal;
+in vec2 TexCoord;
 out vec4 FragColor;
 
-uniform float time;
+uniform float ambientStrength;
+uniform float diffuseStrength;
+uniform float specularStrength;
+uniform vec3 lightColor;
+uniform vec3 lightPos;
+uniform vec3 cameraPos;
 
-// HSV → RGB
-vec3 hsv2rgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
-// Ease-In/Out Cubic
-float easeInOutCubic(float t) {
-    return t < 0.5
-        ? 4.0 * t * t * t
-        : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0;
-}
+uniform sampler2D uTexture;
 
 void main() {
-    // Normalize model-space pos into [0,1)
-    float modelSeed = fract((fragPos.x + fragPos.y + fragPos.z) / 2.0);
+    float ambient = ambientStrength;
 
-    // Time offset ∈ [0,1)
-    float cycle  = 5.0;
-    float rawT   = mod(time, cycle) / cycle;
-    float easedT = easeInOutCubic(rawT);
+    vec3 toLight = normalize(lightPos - FragPos);
+    float diffuse = diffuseStrength * max(0, dot(toLight, normalize(FragNormal)));
 
-    // Final hue
-    float hue = fract(modelSeed + easedT);
+    vec3 fromLight = -toLight;
+    vec3 toCamera = normalize(cameraPos - FragPos);
+    float specular = specularStrength * pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), 128);
 
-    // Convert to RGB
-    vec3 rgb = hsv2rgb(vec3(hue, 1.0, 1.0));
-    rgb.xyz = vec3(abs(sin(time * 0.1)),abs(sin(time * 0.2)),abs(sin(time * 0.3))); // TODO for test
-    FragColor = vec4(rgb, 1.0);
+    float lightIntensity = 0;
+    lightIntensity += ambient;
+    lightIntensity += diffuse;
+    lightIntensity += specular;
+
+    // vec3 objColor = abs(sin(LocalPos));
+    vec3 objColor = texture(uTexture, TexCoord).rgb;
+    vec3 result = lightIntensity * lightColor * objColor;
+
+    FragColor = vec4(result, 1.0);
 }
-

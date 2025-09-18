@@ -1,4 +1,5 @@
 #pragma once
+#include <mb/check-gl-errors.h>
 
 #include <filesystem>
 #include <fstream>
@@ -23,15 +24,13 @@ class Shader_program {
     Shader_program(fs::path const &vert, fs::path const &frag)
         : program_(glCreateProgram())
     {
-        try {
-            auto vertex_shader = compile(read_file(vert), GL_VERTEX_SHADER);
-            auto fragment_shader = compile(read_file(frag), GL_FRAGMENT_SHADER);
-            attach_and_link(vertex_shader, fragment_shader);
-        }
-        catch (std::exception const &e) {
-            spdlog::error(e.what());
-            throw;
-        }
+        spdlog::info("Initializing shader {} from {} and {}...", program_,
+                     vert.string(), frag.string());
+        check_gl_errors();
+        auto vertex_shader = compile(read_file(vert), GL_VERTEX_SHADER);
+        auto fragment_shader = compile(read_file(frag), GL_FRAGMENT_SHADER);
+        attach_and_link(vertex_shader, fragment_shader);
+        spdlog::info("Initialized shader {}", program_);
     }
 
     ~Shader_program()
@@ -41,7 +40,9 @@ class Shader_program {
 
     void use_program() const
     {
+        spdlog::trace("use_program program={}", program_);
         glUseProgram(program_);
+        check_gl_errors();
     }
 
     [[nodiscard]] [[deprecated("should be removed in the future")]] GLuint
@@ -50,11 +51,32 @@ class Shader_program {
         return program_;
     }
 
+    void uniform_mat3(std::string const &name, glm::mat3 const &mat) const
+    {
+        use_program();
+        GLint location = fetch_location(name);
+        glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(mat));
+    }
+
     void uniform_mat4(std::string const &name, glm::mat4 const &mat) const
     {
         use_program();
         GLint location = fetch_location(name);
         glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
+    }
+
+    void uniform_vec3(std::string const &name, glm::vec3 v) const
+    {
+        use_program();
+        GLint location = fetch_location(name);
+        glUniform3f(location, v.x, v.y, v.z);
+    }
+
+    void uniform_1i(std::string const &name, int value) const
+    {
+        use_program();
+        GLint location = fetch_location(name);
+        glUniform1i(location, value);
     }
 
     void uniform_1f(std::string const &name, float value) const
