@@ -6,6 +6,7 @@
 #include <mb/mesh.h>
 #include <mb/shader-program.h>
 
+#include <random>
 // FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
 #include <GLFW/glfw3.h>
 
@@ -184,10 +185,8 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
         shader->uniform_mat4("model", model);
         shader->uniform_mat4("view", view_mat);
         shader->uniform_mat4("projection", proj);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, renderable.diffuse_map);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, renderable.specular_map);
+        renderable.diffuse_map.bind_to_slot(0);
+        renderable.specular_map.bind_to_slot(1);
         shader->uniform_1i("material.diffuse", 0);
         shader->uniform_1i("material.specular", 1);
         shader->uniform_1f("material.shininess", 64);

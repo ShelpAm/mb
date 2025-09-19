@@ -20,8 +20,6 @@ class Game {
     void scroll_input(double xoffset, double yoffset);
     void key_input(int key, int scancode, int action, int mods);
 
-    [[nodiscard]] entt::registry &registry();
-
   private:
     void process_events();
 

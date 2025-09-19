@@ -1,16 +1,9 @@
 #include <mb/app.h>
 
 #include <mb/callbacks.h>
-#include <mb/components.h>
 #include <mb/game.h>
-#include <mb/generate-terrain-mesh.h>
-#include <mb/mesh.h>
-#include <mb/systems.h>
-#include <mb/world.h>
 
 #include <glad/gl.h>
-#include <glm/ext.hpp>
-#include <glm/glm.hpp>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 

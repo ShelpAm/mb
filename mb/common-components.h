@@ -1,6 +1,7 @@
 #pragma once
 
-#include <glad/gl.h>
+#include <mb/texture.h>
+
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -26,8 +27,8 @@ class Shader_program;
 struct Renderable {
     std::shared_ptr<Mesh> mesh;
     Shader_program const *shader;
-    GLuint diffuse_map;
-    GLuint specular_map;
+    Texture diffuse_map;
+    Texture specular_map;
 };
 
 struct Ai_tag {};

@@ -1,44 +1,11 @@
 #include <mb/game.h>
 
 #include <mb/components.h>
-#include <mb/generate-terrain-mesh.h>
+#include <mb/generate-mesh.h>
 #include <mb/lights.h>
 #include <mb/systems.h>
+#include <mb/texture.h>
 #include <mb/troop.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
-GLuint load_texture(char const *path)
-{
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    check_gl_errors();
-
-    int width;
-    int height;
-    int channels;
-    stbi_set_flip_vertically_on_load(1);
-    unsigned char *data = stbi_load(path, &width, &height, &channels, 0);
-    if (data == nullptr) {
-        spdlog::error("Failed find {}", path);
-        throw std::runtime_error(std::format("failed find {}", path));
-    }
-    GLenum format = channels == 3 ? GL_RGB : GL_RGBA;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, format,
-                 GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    check_gl_errors();
-    stbi_image_free(data);
-    return texture;
-}
 
 Game::Game(int width, int height)
     : width_{width}, height_{height},
@@ -55,58 +22,9 @@ void Game::init_world()
 {
     auto &reg = registry_;
 
-    std::vector<float> vertices{
-        // Back face (z = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
-
-        // Front face (z = 0.5)
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
-
-        // Left face (x = -0.5)
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
-        -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // Top-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // Bottom-front
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
-
-        // Right face (x = 0.5)
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
-        0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // Top-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,  // Bottom-front
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
-
-        // Bottom face (y = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-
-        // Top face (y = 0.5)
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f  // Back-left
-    };
-    std::vector<std::uint32_t> indices(vertices.size() / 8);
-    std::ranges::iota(indices, 0);
-    auto cube = std::make_shared<Mesh>(vertices, indices);
+    auto cube = generate_cube_mesh();
+    auto [terrain_mesh, height] = generate_terrain_mesh(100, 100, 0.05F);
+    height_map_ = height;
 
     // Init camere
     {
@@ -130,8 +48,8 @@ void Game::init_world()
         reg.emplace<View_mode>(cam_entity, View_mode::First_player);
     }
 
-    GLuint diffuse = load_texture("/home/shelpam/Pictures/wjz.jpg");
-    GLuint specular = load_texture("/home/shelpam/Pictures/wjz.jpg");
+    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
+    Texture specular("/home/shelpam/Pictures/wjz.jpg");
 
     // Init light cube
     {
@@ -204,8 +122,6 @@ void Game::init_world()
                                                    .specular_map = specular});
     }
 
-    auto [terrain_mesh, height] = generate_terrain_mesh(100, 100, 0.05F);
-    height_map_ = height;
     auto terrain_entity = reg.create();
     reg.emplace<Renderable>(terrain_entity,
                             Renderable{.mesh = terrain_mesh,
@@ -439,9 +355,4 @@ void Game::key_input(int key, int scancode, int action, int mods)
         break;
     }
     }
-}
-
-entt::registry &Game::registry()
-{
-    return registry_;
 }
