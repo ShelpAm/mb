@@ -25,6 +25,27 @@ struct Camera {
         return glm::lookAt(position, position + dir, up);
     }
 
+    [[nodiscard]] glm::vec3 front() const
+    {
+        return glm::vec3{std::cos(pitch) * std::cos(yaw), std::sin(pitch),
+                         -std::cos(pitch) * std::sin(yaw)};
+    }
+
+    [[nodiscard]] glm::vec3 up() const
+    {
+        glm::vec3 dir{std::cos(pitch) * std::cos(yaw), std::sin(pitch),
+                      -std::cos(pitch) * std::sin(yaw)};
+        auto right = glm::normalize(glm::cross(dir, world_up));
+        return glm::normalize(glm::cross(right, dir));
+    }
+
+    [[nodiscard]] glm::vec3 right() const
+    {
+        glm::vec3 dir{std::cos(pitch) * std::cos(yaw), std::sin(pitch),
+                      -std::cos(pitch) * std::sin(yaw)};
+        return glm::normalize(glm::cross(dir, world_up));
+    }
+
     void look_at(glm::vec3 position, glm::vec3 target)
     {
         glm::vec3 dir = glm::normalize(target - position);

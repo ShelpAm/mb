@@ -1,0 +1,4 @@
+Diagnostics:
+  ClangTidy:
+    Remove:
+      - cppcoreguidelines-avoid-magic-numbers

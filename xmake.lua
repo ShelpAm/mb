@@ -9,6 +9,8 @@ set_rundir("$(projectdir)")
 -- dependencies
 add_requires("entt", "glfw", "glm", "spdlog", "stb")
 
+add_cxxflags("-Wmissing-field-initializers")
+
 target("mountblade-clone")
     set_kind("binary")
     add_files("mb/*.cpp")

@@ -1,39 +1,150 @@
 #version 460 core
 
-in  vec3 fragPos;                     // now holds model-space coords
+in vec3 LocalPos;
+in vec3 FragPos;
+in vec3 FragNormal;
+in vec2 TexCoord;
 out vec4 FragColor;
 
-uniform float time;
+struct Material {
+    sampler2D diffuse;
+    sampler2D specular;
+    float     shininess;
+};
 
-// HSV → RGB
-vec3 hsv2rgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+struct Light {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+struct Directional_light {
+    Light light;
+    vec3  dir;
+};
+
+struct Point_light {
+    Light light;
+    vec3  position;
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+struct Spot_light {
+    Light light;
+    vec3  position;
+    vec3  dir;
+    float cut_off;
+    float outer_cut_off;
+};
+
+uniform Material material;
+uniform Directional_light dlight;
+uniform Point_light plight;
+uniform Spot_light slight;
+uniform vec3 cameraPos;
+
+uniform sampler2D uTexture;
+
+vec3 calc_dlights() {
+    vec3 toLight = normalize(-dlight.dir);
+    vec3 fromLight = -toLight;
+    vec3 toCamera = normalize(cameraPos - FragPos);
+
+    // Calculated greatly based on above
+    float diff = max(0, dot(toLight, normalize(FragNormal)));
+    float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
+
+    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
+    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 ambient  = dlight.light.ambient * diffuseMap;
+    vec3 diffuse  = dlight.light.diffuse * (diff * diffuseMap);
+    vec3 specular = dlight.light.specular * (spec * specularMap); 
+
+    vec3 resultColor = vec3(0);
+    resultColor += ambient;
+    resultColor += diffuse;
+    resultColor += specular;
+
+    return resultColor;
 }
 
-// Ease-In/Out Cubic
-float easeInOutCubic(float t) {
-    return t < 0.5
-        ? 4.0 * t * t * t
-        : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0;
+vec3 calc_plights() {
+    vec3 toLight = normalize(plight.position - FragPos);
+    vec3 fromLight = -toLight;
+    vec3 toCamera = normalize(cameraPos - FragPos);
+
+    // Calculated greatly based on above
+    float diff = max(0, dot(toLight, normalize(FragNormal)));
+    float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
+
+    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
+    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 ambient  = plight.light.ambient * diffuseMap;
+    vec3 diffuse  = plight.light.diffuse * (diff * diffuseMap);
+    vec3 specular = plight.light.specular * (spec * specularMap); 
+
+    // Specificly for Point_light
+    float dist = length(plight.position - FragPos);
+    float attenuation = 1.0 / (plight.constant + plight.linear * dist + plight.quadratic * (dist * dist));
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
+
+    vec3 resultColor = vec3(0);
+    resultColor += ambient;
+    resultColor += diffuse;
+    resultColor += specular;
+
+    return resultColor;
+}
+
+vec3 calc_slights() {
+    vec3 toLight = normalize(slight.position - FragPos);
+    vec3 fromLight = -toLight;
+    vec3 toCamera = normalize(cameraPos - FragPos);
+
+    // Calculated greatly based on above
+    float diff = max(0, dot(toLight, normalize(FragNormal)));
+    float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
+
+    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
+    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 ambient  = slight.light.ambient * diffuseMap;
+    vec3 diffuse  = slight.light.diffuse * (diff * diffuseMap);
+    vec3 specular = slight.light.specular * (spec * specularMap); 
+
+    // Specificly for Point_light
+    float dist = length(plight.position - FragPos);
+    float attenuation = 1.0 / (plight.constant + plight.linear * dist + plight.quadratic * (dist * dist));
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
+
+    float cos_theta = dot(fromLight, normalize(slight.dir));
+
+    vec3 resultColor = vec3(0);
+    resultColor += ambient;
+    if (cos_theta >= slight.outer_cut_off) { // theta <= outer_phi
+        if (cos_theta <= slight.cut_off) { // theta >= phi
+            float epsilon = slight.cut_off - slight.outer_cut_off;
+            float intensity = clamp((cos_theta - slight.outer_cut_off) / epsilon, 0, 1);
+            diffuse *= intensity;
+            specular *= intensity;
+        }
+        resultColor += diffuse;
+        resultColor += specular;
+    }
+
+    return resultColor;
 }
 
 void main() {
-    // Normalize model-space pos into [0,1)
-    float modelSeed = fract((fragPos.x + fragPos.y + fragPos.z) / 2.0);
+    vec3 resultColor = vec3(0);
+    // resultColor += calc_dlights();
+    // resultColor += calc_plights();
+    resultColor += calc_slights();
 
-    // Time offset ∈ [0,1)
-    float cycle  = 5.0;
-    float rawT   = mod(time, cycle) / cycle;
-    float easedT = easeInOutCubic(rawT);
-
-    // Final hue
-    float hue = fract(modelSeed + easedT);
-
-    // Convert to RGB
-    vec3 rgb = hsv2rgb(vec3(hue, 1.0, 1.0));
-    rgb.xyz = vec3(abs(sin(time * 0.1)),abs(sin(time * 0.2)),abs(sin(time * 0.3))); // TODO for test
-    FragColor = vec4(rgb, 1.0);
+    FragColor = vec4(resultColor, 1.0);
 }
-

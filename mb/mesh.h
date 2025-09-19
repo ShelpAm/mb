@@ -1,9 +1,11 @@
 #pragma once
+#include <mb/check-gl-errors.h>
 #include <mb/shader-program.h>
 
 #include <cassert>
 #include <cstdint>
 #include <glad/gl.h>
+#include <source_location>
 #include <vector>
 
 // For rendering, containing vertices of models, vao, vbo and ebo.
@@ -34,9 +36,15 @@ class Mesh {
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                               nullptr);
         glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              reinterpret_cast<void *>(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(6 * sizeof(float))); // TexCoord
+        glEnableVertexAttribArray(2);
 
         glBufferData(GL_ARRAY_BUFFER,
                      static_cast<GLsizeiptr>(vertices_.size() * sizeof(float)),
@@ -56,12 +64,10 @@ class Mesh {
         assert(vbo_ != 0);
         assert(ebo_ != 0);
 
-        GLenum err;
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            throw std::runtime_error(
-                std::format("Mesh::Mesh OpenGL error: {}", err));
-        }
+        check_gl_errors();
     }
+    [[deprecated("vertices is no longer 3 per group, but 8. If you don't know "
+                 "what this means, please don't use this function.")]]
     Mesh(std::vector<glm::vec3> vertices, std::vector<std::uint32_t> indices)
         : Mesh(
               // Converts to std::vector<float>
@@ -106,27 +112,27 @@ class Mesh {
         }
 
         shader.use_program();
+        check_gl_errors();
         glBindVertexArray(vao_);
         assert(indices_.size() <= std::numeric_limits<GLsizei>::max());
+        check_gl_errors();
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()),
                        GL_UNSIGNED_INT, nullptr);
+        check_gl_errors();
         glBindVertexArray(0);
-
-        GLenum err;
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            spdlog::error("OpenGL error in Mesh::render(): {}", err);
-        }
-        if (err != GL_NO_ERROR) {
-            throw std::exception();
-        }
+        check_gl_errors();
     }
 
-    [[nodiscard]] auto const &vertices() const
+    [[deprecated("this->vertices_ will be removed in the future, so this "
+                 "function will too be removed.")]] [[nodiscard]]
+    auto const &vertices() const
     {
         return vertices_;
     }
 
-    [[nodiscard]] auto const &indices() const
+    [[deprecated("this->indices_ will be removed in the future, so this "
+                 "function will too be removed.")]] [[nodiscard]]
+    auto const &indices() const
     {
         return indices_;
     }
