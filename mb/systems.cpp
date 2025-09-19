@@ -1,6 +1,9 @@
 #include <mb/systems.h>
 
 #include <mb/components.h>
+#include <mb/lights.h>
+#include <mb/mesh.h>
+#include <mb/shader-program.h>
 
 bool chance(float p)
 {
@@ -32,9 +35,9 @@ void ai_system(entt::registry &registry, float dt)
             if (chance(0.3F)) {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                std::uniform_real_distribution<float> dist_x(0.0F, 90.0F);
-                std::uniform_real_distribution<float> dist_y(30.0F, 50.0F);
-                std::uniform_real_distribution<float> dist_z(0.0F, 60.0F);
+                std::uniform_real_distribution<float> dist_x(0.0F, 100.0F);
+                std::uniform_real_distribution<float> dist_y(0, 0);
+                std::uniform_real_distribution<float> dist_z(0.0F, 100.0F);
                 glm::vec3 random_pos{dist_x(gen), dist_y(gen), dist_z(gen)};
                 registry.emplace<Pathing>(entity, random_pos);
                 spdlog::debug("pathing: {} -> ({}, {}, {})",
@@ -51,7 +54,10 @@ void movement_system(entt::registry &registry, float dt,
     constexpr double eps{0.5};
     auto pathings = registry.view<Pathing, Position, Velocity>();
     for (auto [entity, pathing, pos, vel] : pathings.each()) {
-        if (glm::length(pathing.destination - pos.value) > eps) {
+        // Pathing to x,z
+        if (glm::length(
+                glm::vec2{pathing.destination.x, pathing.destination.z} -
+                glm::vec2{pos.value.x, pos.value.z}) > eps) {
             vel.dir = glm::normalize(pathing.destination - pos.value);
         }
         else {
@@ -153,15 +159,33 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
         shader->uniform_mat4("model", model);
         shader->uniform_mat4("view", view_mat);
         shader->uniform_mat4("projection", proj);
-        shader->uniform_1f("ambientStrength", 0.2F);
-        shader->uniform_1f("diffuseStrength", 1.F);
-        shader->uniform_1f("specularStrength", 1.F);
-        shader->uniform_vec3("lightColor", glm::vec3{0.6, 0.8, 0.5});
-        // shader->uniform_vec3("lightPos", {-3, 2, -5.});
-        shader->uniform_vec3("lightPos", {30, 100, 30});
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, renderable.texture);
-        shader->uniform_1i("uTexture", 0);
+        glBindTexture(GL_TEXTURE_2D, renderable.diffuse_map);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, renderable.specular_map);
+        shader->uniform_1i("material.diffuse", 0);
+        shader->uniform_1i("material.specular", 1);
+        shader->uniform_1f("material.shininess", 64);
+
+        auto dlights = registry.view<Light, Directional_light>();
+        for (auto [entity, light, dlight] : dlights.each()) {
+            shader->uniform_vec3("dlight.light.ambient", light.ambient);
+            shader->uniform_vec3("dlight.light.diffuse", light.diffuse);
+            shader->uniform_vec3("dlight.light.specular", light.specular);
+            shader->uniform_vec3("dlight.dir", dlight.dir);
+        }
+        auto plights = registry.view<Light, Point_light, Position>();
+        for (auto [entity, light, plight, pos] : plights.each()) {
+            constexpr float mul = 8;
+            shader->uniform_vec3("plight.light.ambient", light.ambient * mul);
+            shader->uniform_vec3("plight.light.diffuse", light.diffuse * mul);
+            shader->uniform_vec3("plight.light.specular", light.specular * mul);
+            shader->uniform_vec3("plight.position", pos.value);
+            shader->uniform_1f("plight.constant", plight.constant);
+            shader->uniform_1f("plight.linear", plight.linear);
+            shader->uniform_1f("plight.quadratic", plight.quadratic);
+        }
+
         auto cam = get_active_camera(registry);
         shader->uniform_vec3("cameraPos", registry.get<Position>(cam).value);
         renderable.mesh->render(*shader);

@@ -66,6 +66,8 @@ class Mesh {
 
         check_gl_errors();
     }
+    [[deprecated("vertices is no longer 3 per group, but 8. If you don't know "
+                 "what this means, please don't use this function.")]]
     Mesh(std::vector<glm::vec3> vertices, std::vector<std::uint32_t> indices)
         : Mesh(
               // Converts to std::vector<float>
@@ -121,12 +123,16 @@ class Mesh {
         check_gl_errors();
     }
 
-    [[nodiscard]] auto const &vertices() const
+    [[deprecated("this->vertices_ will be removed in the future, so this "
+                 "function will too be removed.")]] [[nodiscard]]
+    auto const &vertices() const
     {
         return vertices_;
     }
 
-    [[nodiscard]] auto const &indices() const
+    [[deprecated("this->indices_ will be removed in the future, so this "
+                 "function will too be removed.")]] [[nodiscard]]
+    auto const &indices() const
     {
         return indices_;
     }

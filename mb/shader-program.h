@@ -1,5 +1,6 @@
 #pragma once
 #include <mb/check-gl-errors.h>
+#include <mb/components.h>
 
 #include <filesystem>
 #include <fstream>

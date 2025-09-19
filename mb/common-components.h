@@ -1,8 +1,8 @@
 #pragma once
-#include <mb/mesh.h>
-#include <mb/shader-program.h>
 
+#include <glad/gl.h>
 #include <glm/glm.hpp>
+#include <memory>
 
 struct Pathing {
     glm::vec3 destination;
@@ -21,10 +21,13 @@ struct Velocity {
     float speed;
 };
 
+class Mesh;
+class Shader_program;
 struct Renderable {
     std::shared_ptr<Mesh> mesh;
     Shader_program const *shader;
-    GLuint texture;
+    GLuint diffuse_map;
+    GLuint specular_map;
 };
 
 struct Ai_tag {};
