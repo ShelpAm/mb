@@ -118,8 +118,10 @@ void Game::init_world()
         reg.emplace<Velocity>(cam_entity, Velocity{.dir = {}, .speed = 30});
         reg.emplace<View_mode>(cam_entity, View_mode::God);
     }
+    entt::entity fpscam;
     {
         auto cam_entity = reg.create();
+        fpscam = cam_entity;
         reg.emplace<Camera>(
             cam_entity,
             Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
@@ -141,6 +143,14 @@ void Game::init_world()
                                            .diffuse_map = diffuse,
                                            .specular_map = specular});
     }
+    { // Init directional light
+        auto light = reg.create();
+        reg.emplace<Directional_light>(light,
+                                       Directional_light{.dir = {-1, -3, 2}});
+        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
+                                        .diffuse = glm::vec3{0.5},
+                                        .specular = glm::vec3{0.5}});
+    }
     { // Init point light
         auto light = reg.create();
         reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
@@ -151,12 +161,18 @@ void Game::init_world()
                                         .diffuse = glm::vec3{0.5},
                                         .specular = glm::vec3{1}});
     }
-    { // Init directional light
+    { // Init spot light
         auto light = reg.create();
-        reg.emplace<Directional_light>(light,
-                                       Directional_light{.dir = {-1, -3, 2}});
+        reg.emplace<Spot_light>(
+            light, Spot_light{.constant = 1,
+                              .linear = 0.045,
+                              .quadratic = 0.0075,
+                              .dir = reg.get<Camera>(fpscam).front(),
+                              .cut_off = glm::cos(glm::radians(25.F)),
+                              .outer_cut_off = glm::cos(glm::radians(30.F))});
+        reg.emplace<Position>(light, reg.get<Position>(fpscam));
         reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-                                        .diffuse = glm::vec3{0.2},
+                                        .diffuse = glm::vec3{0.8},
                                         .specular = glm::vec3{1}});
     }
 
@@ -279,7 +295,7 @@ void Game::cursorpos_input(double xpos, double ypos)
         break;
     }
     case View_mode::First_player: {
-        constexpr float sensitivity{0.1 * std::numbers::pi / 180}; // 1 degree
+        constexpr float sensitivity{0.03 * std::numbers::pi / 180}; // 1 degree
         auto &cam{registry_.get<Camera>(cam_entity)};
         cam.yaw -= sensitivity * cursor_pos_delta_.x;
         cam.pitch -= sensitivity * cursor_pos_delta_.y;

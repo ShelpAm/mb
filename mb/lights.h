@@ -19,3 +19,13 @@ struct Point_light {
     float linear;
     float quadratic;
 };
+
+struct Spot_light {
+    /* glm::vec3 positoin; Refer to this in Position component. */
+    float constant;
+    float linear;
+    float quadratic;
+    glm::vec3 dir;
+    float cut_off;
+    float outer_cut_off;
+};

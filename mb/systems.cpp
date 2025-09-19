@@ -1,9 +1,13 @@
 #include <mb/systems.h>
 
 #include <mb/components.h>
+#include <mb/game.h>
 #include <mb/lights.h>
 #include <mb/mesh.h>
 #include <mb/shader-program.h>
+
+// FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
+#include <GLFW/glfw3.h>
 
 bool chance(float p)
 {
@@ -66,6 +70,15 @@ void movement_system(entt::registry &registry, float dt,
         }
     }
 
+    // Simulates movement of sun
+    auto dlights = registry.view<Directional_light>();
+    for (auto [entity, dlight] : dlights.each()) {
+        // Simulate sun movement (circular arc in x-y plane)
+        float angle = glfwGetTime() * 0.5f; // Adjust speed (0.5 radians/sec)
+        dlight.dir = glm::normalize(
+            glm::vec3(cos(angle), -sin(angle), sin(angle) * 0.5f));
+    }
+
     // Moves those have velocity to their direction.
     auto moveables = registry.view<Position, Velocity>().each();
     for (auto [entity, pos, vel] : moveables) {
@@ -85,6 +98,18 @@ void movement_system(entt::registry &registry, float dt,
         auto p = pos.value;
         spdlog::debug("entity {} pos={},{},{}",
                       static_cast<std::size_t>(entity), p.x, p.y, p.z);
+    }
+
+    // Simulates 手电筒灯光 (跟随摄像机)
+    auto slights = registry.view<Light, Spot_light, Position>();
+    for (auto [entity, light, slight, pos] : slights.each()) {
+        auto cameras = registry.view<Camera, View_mode>();
+        for (auto [cam_entity, cam, view_mode] : cameras.each()) {
+            if (view_mode == View_mode::First_player) {
+                pos.value = registry.get<Position>(cam_entity).value;
+                slight.dir = registry.get<Camera>(cam_entity).front();
+            }
+        }
     }
 }
 void collision_system(entt::registry &registry, float now)
@@ -184,6 +209,18 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
             shader->uniform_1f("plight.constant", plight.constant);
             shader->uniform_1f("plight.linear", plight.linear);
             shader->uniform_1f("plight.quadratic", plight.quadratic);
+        }
+        auto slights = registry.view<Light, Spot_light, Position>();
+        for (auto [entity, light, slight, pos] : slights.each()) {
+            shader->uniform_vec3("slight.light.ambient", light.ambient);
+            shader->uniform_vec3("slight.light.diffuse", light.diffuse);
+            shader->uniform_vec3("slight.light.specular", light.specular);
+            shader->uniform_1f("plight.constant", slight.constant);
+            shader->uniform_1f("plight.linear", slight.linear);
+            shader->uniform_1f("plight.quadratic", slight.quadratic);
+            shader->uniform_vec3("slight.position", pos.value);
+            shader->uniform_vec3("slight.dir", slight.dir);
+            shader->uniform_1f("slight.cut_off", slight.cut_off);
         }
 
         auto cam = get_active_camera(registry);
