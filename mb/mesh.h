@@ -1,31 +1,33 @@
 #pragma once
 #include <mb/check-gl-errors.h>
 #include <mb/shader-program.h>
+#include <mb/texture.h>
 
 #include <cassert>
 #include <cstdint>
 #include <glad/gl.h>
-#include <source_location>
 #include <vector>
 
-// For rendering, containing vertices of models, vao, vbo and ebo.
-//
-// Now only support position of model
+// For rendering, containing vertices of models, vao, vbo, ebo, and textures.
 class Mesh {
   public:
     Mesh(Mesh const &) = delete;
-    Mesh(Mesh &&other) noexcept
-        : vao_(other.vao_), vbo_(other.vbo_), ebo_(other.ebo_),
-          vertices_(std::move(other.vertices_)),
-          indices_(std::move(other.indices_))
-
-    {
-        other.vao_ = other.vbo_ = other.ebo_ = -1U;
-    }
+    Mesh(Mesh &&other) noexcept = delete;
+    //     : vao_(other.vao_), vbo_(other.vbo_), ebo_(other.ebo_),
+    //       vertices_(std::move(other.vertices_)),
+    //       indices_(std::move(other.indices_)),
+    //       textures_{std::move(other.textures_)}
+    // {
+    //     other.vao_ = other.vbo_ = other.ebo_ = -1U;
+    //     other.textures_.clear();
+    // }
     Mesh &operator=(Mesh const &) = delete;
     Mesh &operator=(Mesh &&) = delete;
-    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices)
-        : vertices_(std::move(vertices)), indices_(std::move(indices))
+    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices,
+         Texture diffuse_map, Texture specular_map)
+        : vertices_(std::move(vertices)), indices_(std::move(indices)),
+          // textures_{std::move(textures)}
+          diffuse_map_{diffuse_map}, specular_map_{specular_map}
     {
         glGenVertexArrays(1, &vao_);
         glGenBuffers(1, &vbo_);
@@ -68,7 +70,9 @@ class Mesh {
     }
     [[deprecated("vertices is no longer 3 per group, but 8. If you don't know "
                  "what this means, please don't use this function.")]]
-    Mesh(std::vector<glm::vec3> vertices, std::vector<std::uint32_t> indices)
+    Mesh(std::vector<glm::vec3> vertices, std::vector<std::uint32_t> indices,
+         // std::vector<Texture> textures
+         Texture diffuse_map, Texture specular_map)
         : Mesh(
               // Converts to std::vector<float>
               [&vertices]() {
@@ -80,7 +84,7 @@ class Mesh {
                   }
                   return verts;
               }(),
-              std::move(indices))
+              std::move(indices), diffuse_map, specular_map)
     {
     }
 
@@ -137,12 +141,23 @@ class Mesh {
         return indices_;
     }
 
+    [[deprecated("Don't depend too much on this, as this may be sign of bad "
+                 "smell of code..")]]
+    void bind_diffuse_and_specular(int diff, int spec) const
+    {
+        diffuse_map_.bind_to_slot(diff);
+        specular_map_.bind_to_slot(spec);
+    }
+
   private:
-    // Initial invalid value for error checking: if it's -1U (very big signed),
-    // then it indicates an error or the Mesh object doesn't own the model.
+    // Initial invalid value for error checking: if it's 0 , then it indicates
+    // an error or the Mesh object doesn't own the model.
     GLuint vao_{};
     GLuint vbo_{};
     GLuint ebo_{};
     std::vector<float> vertices_;
     std::vector<std::uint32_t> indices_;
+    // std::vector<Texture> textures_;
+    Texture diffuse_map_;
+    Texture specular_map_;
 };

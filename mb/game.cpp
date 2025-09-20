@@ -45,7 +45,7 @@ void Game::init_world()
     {
         auto cam_entity = reg.create();
         fpscam = cam_entity;
-        reg.emplace<Fps_cam>(cam_entity);
+        reg.emplace<Fps_camemra_tag>(cam_entity);
         reg.emplace<Camera>(
             cam_entity,
             Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
@@ -54,18 +54,13 @@ void Game::init_world()
         reg.emplace<View_mode>(cam_entity, View_mode::First_player);
     }
 
-    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
-    Texture specular("/home/shelpam/Pictures/wjz.jpg");
-
     // Init light cube
     {
         auto light_cube = reg.create();
         reg.emplace<Position>(light_cube, glm::vec3{30, 20, 40});
-        reg.emplace<Renderable>(light_cube,
-                                Renderable{.mesh = cube,
-                                           .shader = &light_cube_shader_,
-                                           .diffuse_map = diffuse,
-                                           .specular_map = specular});
+        reg.emplace<Renderable>(
+            light_cube,
+            Renderable{.mesh = cube, .shader = &light_cube_shader_});
     }
     { // Init directional light
         auto light = reg.create();
@@ -76,14 +71,14 @@ void Game::init_world()
                                         .specular = glm::vec3{0.5}});
     }
     { // Init point light
-        auto light = reg.create();
-        reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
-                                                    .linear = 0.09F,
-                                                    .quadratic = 0.032F});
-        reg.emplace<Position>(light, glm::vec3{30, 20, 40});
-        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-                                        .diffuse = glm::vec3{0.5},
-                                        .specular = glm::vec3{1}});
+      // auto light = reg.create();
+      // reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
+      //                                             .linear = 0.09F,
+      //                                             .quadratic = 0.032F});
+      // reg.emplace<Position>(light, glm::vec3{30, 20, 40});
+      // reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
+      //                                 .diffuse = glm::vec3{0.5},
+      //                                 .specular = glm::vec3{1}});
     }
     { // Init spot light
         auto light = reg.create();
@@ -108,32 +103,48 @@ void Game::init_world()
     std::vector<Troop_stack> myarmy;
     myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
     reg.emplace<Army>(me, Army{.stacks = myarmy});
-    reg.emplace<Renderable>(me, Renderable{.mesh = cube,
-                                           .shader = &shader_,
-                                           .diffuse_map = diffuse,
-                                           .specular_map = specular});
+    reg.emplace<Renderable>(me, Renderable{.mesh = cube, .shader = &shader_});
+    reg.emplace<Point_light>(
+        me,
+        Point_light{.constant = 1.0F, .linear = 0.09F, .quadratic = 0.032F});
+    reg.emplace<Light>(me, Light{.ambient = glm::vec3{0.1},
+                                 .diffuse = glm::vec3{0.5},
+                                 .specular = glm::vec3{1}});
 
     // Init armies
-    for (int i{}; i != 5; ++i) {
-        auto entity = reg.create();
-        reg.emplace<Ai_tag>(entity);
-        std::vector<Troop_stack> army;
-        army.push_back(Troop_stack{.size = 3, .troop_id = -1UZ});
-        reg.emplace<Army>(entity, Army{.stacks = army});
-        reg.emplace<Position>(entity, glm::vec3{10, 0, 15});
-        reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20});
-        reg.emplace<Renderable>(entity, Renderable{.mesh = cube,
-                                                   .shader = &shader_,
-                                                   .diffuse_map = diffuse,
-                                                   .specular_map = specular});
+    {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+
+        // 随机位置范围
+        std::uniform_real_distribution<float> posX(0, 100);
+        std::uniform_real_distribution<float> posZ(0, 100);
+
+        // 随机队伍规模
+        std::uniform_int_distribution<int> troopSize(1, 5);
+
+        for (int i{}; i != 5; ++i) {
+            auto entity = reg.create();
+            reg.emplace<Ai_tag>(entity);
+
+            std::vector<Troop_stack> army;
+            std::size_t size = troopSize(gen);
+            army.push_back(Troop_stack{.size = size, .troop_id = -1UZ});
+            reg.emplace<Army>(entity, Army{.stacks = army});
+
+            glm::vec3 pos{posX(gen), 0, posZ(gen)};
+            reg.emplace<Position>(entity, pos);
+
+            reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20.0f});
+
+            reg.emplace<Renderable>(
+                entity, Renderable{.mesh = cube, .shader = &shader_});
+        }
     }
 
     auto terrain_entity = reg.create();
-    reg.emplace<Renderable>(terrain_entity,
-                            Renderable{.mesh = terrain_mesh,
-                                       .shader = &shader_,
-                                       .diffuse_map = diffuse,
-                                       .specular_map = specular});
+    reg.emplace<Renderable>(
+        terrain_entity, Renderable{.mesh = terrain_mesh, .shader = &shader_});
     reg.emplace<Position>(terrain_entity, glm::vec3{0.0F, 0.0F, 0.0F});
 }
 
@@ -165,6 +176,7 @@ void Game::main_loop(GLFWwindow *window)
         }
         movement_system(registry_, static_cast<float>(dt), height_map_);
         collision_system(registry_, static_cast<float>(now));
+        perception_system(registry_);
         ai_system(registry_, static_cast<float>(dt));
 
         glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
