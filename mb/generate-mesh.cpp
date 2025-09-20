@@ -12,6 +12,8 @@ generate_terrain_mesh(int width, int depth, float scale)
     Perlin perlin;
     std::vector<float> vertices;
     std::vector<std::uint32_t> indices;
+    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
+    Texture specular("/home/shelpam/Pictures/wjz.jpg");
 
     int rows = depth;
     int cols = width;
@@ -103,7 +105,8 @@ generate_terrain_mesh(int width, int depth, float scale)
         }
     }
 
-    return std::make_pair(std::make_shared<Mesh>(vertices, indices), height);
+    return std::make_pair(
+        std::make_shared<Mesh>(vertices, indices, diffuse, specular), height);
 }
 
 std::shared_ptr<Mesh> generate_cube_mesh()
@@ -159,7 +162,9 @@ std::shared_ptr<Mesh> generate_cube_mesh()
     };
     std::vector<std::uint32_t> indices(vertices.size() / 8);
     std::ranges::iota(indices, 0);
-    auto cube = std::make_shared<Mesh>(vertices, indices);
+    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
+    Texture specular("/home/shelpam/Pictures/wjz.jpg");
+    auto cube = std::make_shared<Mesh>(vertices, indices, diffuse, specular);
 
     return cube;
 }

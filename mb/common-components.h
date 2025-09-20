@@ -28,8 +28,6 @@ class Shader_program;
 struct Renderable {
     std::shared_ptr<Mesh> mesh;
     Shader_program const *shader;
-    Texture diffuse_map;
-    Texture specular_map;
 };
 
 struct Ai_tag {};
@@ -41,7 +39,7 @@ struct Ai_cooldown {
 
 struct Local_player_tag {};
 
-struct Fps_cam {};
+struct Fps_camemra_tag {};
 
 struct Perception {
     std::vector<entt::entity> viewable_enemies;

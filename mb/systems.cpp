@@ -10,89 +10,6 @@
 // FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
 #include <GLFW/glfw3.h>
 
-bool chance(float p)
-{
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_real_distribution<float> dist(0.0F, 1.0F);
-    return dist(gen) < p;
-}
-
-void perception_system(entt::registry &registry)
-{
-    auto ai_armies = registry.view<Ai_tag, Army, Position>();
-    auto armies = registry.view<Army, Position>();
-    for (auto [e, army1, pos1] : ai_armies.each()) {
-        Perception perc{.viewable_enemies = {}};
-
-        for (auto [e2, army2, pos2] : armies.each()) {
-            if (e == e2) {
-                continue;
-            }
-
-            constexpr float view_dist{10};
-            auto dist = glm::distance(glm::vec2{pos1.value.x, pos1.value.z},
-                                      glm::vec2{pos2.value.x, pos2.value.z});
-            if (dist < view_dist) {
-                perc.viewable_enemies.push_back(e2);
-            }
-        }
-
-        registry.emplace_or_replace<Perception>(e, perc);
-    }
-}
-
-void ai_system(entt::registry &reg, float dt)
-{
-    // Collision handling
-    // for ()
-
-    auto troops = reg.view<Ai_tag, Army, Position>();
-    for (auto [entity, army, pos] : troops.each()) {
-        auto *perc = reg.try_get<Perception>(entity);
-        if (perc == nullptr) {
-            spdlog::error("Runtime error: perc doesn't exist");
-            continue;
-        }
-
-        if (!perc->viewable_enemies.empty()) {
-            auto target_pos = reg.get<Position>(perc->viewable_enemies.front());
-            reg.emplace_or_replace<Pathing>(
-                entity, Pathing{.destination = target_pos.value});
-        }
-        else {
-            // Add cooldown component if missing
-            if (!reg.all_of<Ai_cooldown>(entity)) {
-                reg.emplace<Ai_cooldown>(entity,
-                                         Ai_cooldown{.timer = 0, .total = 1});
-            }
-
-            auto &cd = reg.get<Ai_cooldown>(entity);
-            cd.timer -= dt; // decrease by frame delta time
-            //
-            if (cd.timer > 0.0F) {
-                continue; // not ready yet
-            }
-            cd.timer = cd.total; // reset cooldown
-
-            // Decide action
-            if (!reg.all_of<Pathing>(entity)) {
-                if (chance(0.3F)) {
-                    std::random_device rd;
-                    std::mt19937 gen(rd());
-                    std::uniform_real_distribution<float> dist_x(0.0F, 100.0F);
-                    std::uniform_real_distribution<float> dist_y(0, 0);
-                    std::uniform_real_distribution<float> dist_z(0.0F, 100.0F);
-                    glm::vec3 random_pos{dist_x(gen), dist_y(gen), dist_z(gen)};
-                    reg.emplace<Pathing>(entity, random_pos);
-                    spdlog::info("randomly wandering: {}",
-                                 static_cast<int>(entity));
-                }
-            }
-        }
-    }
-}
-
 void movement_system(entt::registry &reg, float dt,
                      std::vector<std::vector<float>> const &mountain_height)
 {
@@ -134,7 +51,7 @@ void movement_system(entt::registry &reg, float dt,
         }
         pos.value += glm::normalize(vel.dir) * vel.speed * dt;
 
-        if (reg.all_of<Army>(entity) || reg.all_of<Fps_cam>(entity)) {
+        if (reg.all_of<Army>(entity) || reg.all_of<Fps_camemra_tag>(entity)) {
             // 双线性插值计算高度
             float x = pos.value.x;
             float z = pos.value.z;
@@ -178,8 +95,8 @@ void movement_system(entt::registry &reg, float dt,
 
     // Simulates 手电筒灯光 (跟随摄像机)
     auto slights = reg.view<Light, Spot_light, Position>();
+    auto cameras = reg.view<Camera, View_mode>();
     for (auto [entity, light, slight, pos] : slights.each()) {
-        auto cameras = reg.view<Camera, View_mode>();
         for (auto [cam_entity, cam, view_mode] : cameras.each()) {
             if (view_mode == View_mode::First_player) {
                 pos.value = reg.get<Position>(cam_entity).value;
@@ -192,6 +109,7 @@ void movement_system(entt::registry &reg, float dt,
 void collision_system(entt::registry &registry, float now)
 {
     // Pairs in this map won't collide until `value`.
+    // first entity should be less than second entity.
     static std::map<std::pair<entt::entity, entt::entity>, double>
         collision_free;
 
@@ -260,8 +178,7 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
         shader->uniform_mat4("model", model);
         shader->uniform_mat4("view", view_mat);
         shader->uniform_mat4("projection", proj);
-        renderable.diffuse_map.bind_to_slot(0);
-        renderable.specular_map.bind_to_slot(1);
+        renderable.mesh->bind_diffuse_and_specular(0, 1);
         shader->uniform_1i("material.diffuse", 0);
         shader->uniform_1i("material.specular", 1);
         shader->uniform_1f("material.shininess", 64);

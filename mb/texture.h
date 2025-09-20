@@ -5,6 +5,7 @@
 #include <glad/gl.h>
 #include <stb_image.h>
 
+/// @brief Texture doesn't own the resource, but has reference to it.
 class Texture {
   public:
     Texture(std::filesystem::path const &path) : texture_{gen_texture()}
