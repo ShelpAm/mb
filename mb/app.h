@@ -25,6 +25,7 @@ class App {
 
   private:
     GLFWwindow *make_window(int width, int height, std::string const &title);
+    void center_glfwwindow() const;
 
     GLFWwindow *window_;
     Game game_;
