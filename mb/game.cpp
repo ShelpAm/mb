@@ -45,7 +45,7 @@ void Game::init_world()
     {
         auto cam_entity = reg.create();
         fpscam = cam_entity;
-        reg.emplace<Fps_cam>(cam_entity);
+        reg.emplace<Fps_camemra_tag>(cam_entity);
         reg.emplace<Camera>(
             cam_entity,
             Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
@@ -54,18 +54,13 @@ void Game::init_world()
         reg.emplace<View_mode>(cam_entity, View_mode::First_player);
     }
 
-    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
-    Texture specular("/home/shelpam/Pictures/wjz.jpg");
-
     // Init light cube
     {
         auto light_cube = reg.create();
         reg.emplace<Position>(light_cube, glm::vec3{30, 20, 40});
-        reg.emplace<Renderable>(light_cube,
-                                Renderable{.mesh = cube,
-                                           .shader = &light_cube_shader_,
-                                           .diffuse_map = diffuse,
-                                           .specular_map = specular});
+        reg.emplace<Renderable>(
+            light_cube,
+            Renderable{.mesh = cube, .shader = &light_cube_shader_});
     }
     { // Init directional light
         auto light = reg.create();
@@ -108,10 +103,7 @@ void Game::init_world()
     std::vector<Troop_stack> myarmy;
     myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
     reg.emplace<Army>(me, Army{.stacks = myarmy});
-    reg.emplace<Renderable>(me, Renderable{.mesh = cube,
-                                           .shader = &shader_,
-                                           .diffuse_map = diffuse,
-                                           .specular_map = specular});
+    reg.emplace<Renderable>(me, Renderable{.mesh = cube, .shader = &shader_});
     reg.emplace<Point_light>(
         me,
         Point_light{.constant = 1.0F, .linear = 0.09F, .quadratic = 0.032F});
@@ -131,7 +123,7 @@ void Game::init_world()
         // 随机队伍规模
         std::uniform_int_distribution<int> troopSize(1, 5);
 
-        for (int i{}; i != 1; ++i) {
+        for (int i{}; i != 5; ++i) {
             auto entity = reg.create();
             reg.emplace<Ai_tag>(entity);
 
@@ -145,34 +137,14 @@ void Game::init_world()
 
             reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20.0f});
 
-            reg.emplace<Renderable>(entity,
-                                    Renderable{.mesh = cube,
-                                               .shader = &shader_,
-                                               .diffuse_map = diffuse,
-                                               .specular_map = specular});
+            reg.emplace<Renderable>(
+                entity, Renderable{.mesh = cube, .shader = &shader_});
         }
     }
-    // for (int i{}; i != 5; ++i) {
-    //     auto entity = reg.create();
-    //     reg.emplace<Ai_tag>(entity);
-    //     std::vector<Troop_stack> army;
-    //     army.push_back(Troop_stack{.size = 3, .troop_id = -1UZ});
-    //     reg.emplace<Army>(entity, Army{.stacks = army});
-    //     reg.emplace<Position>(entity, glm::vec3{10, 0, 15});
-    //     reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20});
-    //     reg.emplace<Renderable>(entity, Renderable{.mesh = cube,
-    //                                                .shader = &shader_,
-    //                                                .diffuse_map = diffuse,
-    //                                                .specular_map =
-    //                                                specular});
-    // }
 
     auto terrain_entity = reg.create();
-    reg.emplace<Renderable>(terrain_entity,
-                            Renderable{.mesh = terrain_mesh,
-                                       .shader = &shader_,
-                                       .diffuse_map = diffuse,
-                                       .specular_map = specular});
+    reg.emplace<Renderable>(
+        terrain_entity, Renderable{.mesh = terrain_mesh, .shader = &shader_});
     reg.emplace<Position>(terrain_entity, glm::vec3{0.0F, 0.0F, 0.0F});
 }
 
