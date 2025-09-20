@@ -1,4 +1,5 @@
 #pragma once
+#include <mb/font.h>
 #include <mb/shader-program.h>
 
 #include <entt/entt.hpp>
@@ -8,6 +9,8 @@
 enum class View_mode { God, First_player };
 
 class Game {
+    friend class Ui;
+
   public:
     Game(int width, int height);
 
@@ -30,8 +33,12 @@ class Game {
     glm::mat4 proj_;
     Shader_program shader_;
     Shader_program light_cube_shader_;
+    Shader_program font_shader_;
     entt::registry registry_;
     std::vector<std::vector<float>> height_map_;
+
+    Font font_;
+    Ui ui_;
 
     View_mode view_mode_{View_mode::God};
 };

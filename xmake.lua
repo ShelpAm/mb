@@ -7,7 +7,7 @@ add_rules("mode.debug", "mode.release")
 set_rundir("$(projectdir)")
 
 -- dependencies
-add_requires("entt", "glfw", "glm", "spdlog", "stb")
+add_requires("entt", "freetype", "glfw", "glm", "spdlog", "stb")
 
 add_cxxflags("-Wmissing-field-initializers")
 
@@ -16,5 +16,5 @@ target("mountblade-clone")
     add_files("mb/*.cpp")
     add_headerfiles("mb/*.h")
     add_deps("glad")
-    add_packages("entt", "glfw", "glm", "spdlog", "stb")
+    add_packages("entt", "freetype", "glfw", "glm", "spdlog", "stb")
     add_includedirs(".")

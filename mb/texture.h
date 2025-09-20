@@ -28,6 +28,15 @@ class Texture {
         stbi_image_free(data);
     }
 
+    Texture(int width, int height, int format, unsigned char const *data)
+        : texture_{gen_texture()}
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, format,
+                     GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        check_gl_errors();
+    }
+
     void bind_to_slot(int slot) const
     {
         assert(slot >= 0);

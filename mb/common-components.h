@@ -39,3 +39,5 @@ struct Ai_cooldown {
 };
 
 struct Local_player_tag {};
+
+struct Fps_cam {};
