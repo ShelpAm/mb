@@ -5,6 +5,7 @@
 
 bool chance(float p);
 
+// Feel environment
 void ai_system(entt::registry &registry, float dt);
 
 void movement_system(entt::registry &registry, float dt,
@@ -17,3 +18,5 @@ entt::entity get_active_camera(entt::registry &reg);
 glm::mat4 get_active_view_mat(entt::registry &reg);
 
 void render_system(entt::registry &registry, float now, glm::mat4 const &proj);
+
+void perception_system(entt::registry &registry);

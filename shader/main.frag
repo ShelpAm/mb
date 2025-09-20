@@ -143,7 +143,7 @@ vec3 calc_slights() {
 
 void main() {
     vec3 resultColor = vec3(0);
-    // resultColor += calc_dlights();
+    resultColor += calc_dlights();
     resultColor += calc_plights();
     resultColor += calc_slights();
 

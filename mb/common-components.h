@@ -2,6 +2,7 @@
 
 #include <mb/texture.h>
 
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -41,3 +42,7 @@ struct Ai_cooldown {
 struct Local_player_tag {};
 
 struct Fps_cam {};
+
+struct Perception {
+    std::vector<entt::entity> viewable_enemies;
+};
