@@ -15,7 +15,7 @@ class Texture {
         int channels;
         stbi_set_flip_vertically_on_load(1);
         unsigned char *data =
-            stbi_load(path.c_str(), &width, &height, &channels, 0);
+            stbi_load(path.string().c_str(), &width, &height, &channels, 0);
         if (data == nullptr) {
             spdlog::error("Failed to find {}", path.string());
             throw std::runtime_error(

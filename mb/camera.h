@@ -3,6 +3,7 @@
 #include <cmath>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
+#include <numbers>
 
 struct Camera {
     static constexpr glm::vec3 world_up{0, 1, 0};
