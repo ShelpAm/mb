@@ -16,8 +16,7 @@ Game::Game(int width, int height)
       shader_("./shader/main.vert", "./shader/main.frag"),
       light_cube_shader_("./shader/main.vert", "./shader/light.frag"),
       font_shader_("./shader/font.vert", "./shader/font.frag"),
-      font_("/home/shelpam/.local/share/fonts/Monaspace/"
-            "MonaspaceNeon-Regular.otf"),
+      font_("./resources/MonaspaceNeon-Regular.otf"),
       ui_(width, height, &font_, &font_shader_)
 {
     windowresize_input(width, height);
