@@ -6,6 +6,7 @@
 #include <mb/mesh.h>
 #include <mb/shader-program.h>
 
+#include <random>
 // FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
 #include <GLFW/glfw3.h>
 
@@ -19,6 +20,9 @@ bool chance(float p)
 
 void ai_system(entt::registry &registry, float dt)
 {
+    // Collision handling
+    // for ()
+
     auto troops = registry.view<Ai_tag, Army, Position>();
     for (auto [entity, army, pos] : troops.each()) {
         // Add cooldown component if missing
@@ -87,12 +91,41 @@ void movement_system(entt::registry &registry, float dt,
         }
         pos.value += glm::normalize(vel.dir) * vel.speed * dt;
 
-        if (registry.all_of<Army>(entity)) {
-            // TODO: THIS IS ONLY FOR TEST
-            pos.value.y =
-                mountain_height[int(pos.value.z) % mountain_height.size()]
-                               [int(pos.value.x) % mountain_height[0].size()] +
-                2;
+        if (registry.all_of<Army>(entity) || registry.all_of<Fps_cam>(entity)) {
+            // 双线性插值计算高度
+            float x = pos.value.x;
+            float z = pos.value.z;
+            int x0 = static_cast<int>(std::floor(x));
+            int z0 = static_cast<int>(std::floor(z));
+            int x1 = x0 + 1;
+            int z1 = z0 + 1;
+
+            // 确保索引在mountain_height范围内
+            x0 = std::clamp(x0, 0,
+                            static_cast<int>(mountain_height[0].size()) - 1);
+            x1 = std::clamp(x1, 0,
+                            static_cast<int>(mountain_height[0].size()) - 1);
+            z0 =
+                std::clamp(z0, 0, static_cast<int>(mountain_height.size()) - 1);
+            z1 =
+                std::clamp(z1, 0, static_cast<int>(mountain_height.size()) - 1);
+
+            // 获取四个邻近格点的高度
+            float h00 = mountain_height[z0][x0];
+            float h10 = mountain_height[z0][x1];
+            float h01 = mountain_height[z1][x0];
+            float h11 = mountain_height[z1][x1];
+
+            // 计算插值权重
+            float t = x - x0; // x方向小数部分
+            float u = z - z0; // z方向小数部分
+
+            // 双线性插值
+            float height = (1.0f - t) * (1.0f - u) * h00 +
+                           t * (1.0f - u) * h10 + (1.0f - t) * u * h01 +
+                           t * u * h11;
+
+            pos.value.y = height + 2.0f; // 保持你的+2偏移
         }
 
         auto p = pos.value;
@@ -132,25 +165,23 @@ void collision_system(entt::registry &registry, float now)
     }
 
     // TODO FIXME
-    //  auto armies = registry.view<Army, Position>();
-    //  for (auto [entt1, arm1, pos1] : armies.each()) {
-    //      for (auto [entt2, arm2, pos2] : armies.each()) {
-    //          auto enttpair = std::make_pair(entt1, entt2);
-    //          if (entt1 >= entt2 || collision_free.contains(enttpair)) {
-    //              continue;
-    //          }
-    //          if (glm::length(pos1.value - pos2.value) >
-    //              1.F) { // TODO(shelpam): may use another value here?
-    //              continue;
-    //          }
-    //          // Collision happens between entt1 and entt2
-    //          spdlog::debug("Collision detected: {} with {}",
-    //                        static_cast<int>(entt1), static_cast<int>(entt2));
-    //          if (entt1 == me_ || entt2 == me) {
-    //          }
-    //          collision_free.insert({enttpair, now + 1});
-    //      }
-    //  }
+    auto armies = registry.view<Army, Position>();
+    for (auto [entt1, arm1, pos1] : armies.each()) {
+        for (auto [entt2, arm2, pos2] : armies.each()) {
+            auto enttpair = std::make_pair(entt1, entt2);
+            if (entt1 >= entt2 || collision_free.contains(enttpair)) {
+                continue;
+            }
+            if (glm::length(pos1.value - pos2.value) >
+                1.F) { // TODO(shelpam): may use another value here?
+                continue;
+            }
+            // Collision happens between entt1 and entt2
+            spdlog::debug("Collision detected: {} with {}",
+                          static_cast<int>(entt1), static_cast<int>(entt2));
+            collision_free.insert({enttpair, now + 1});
+        }
+    }
 }
 entt::entity get_active_camera(entt::registry &reg)
 {
@@ -184,10 +215,8 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
         shader->uniform_mat4("model", model);
         shader->uniform_mat4("view", view_mat);
         shader->uniform_mat4("projection", proj);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, renderable.diffuse_map);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, renderable.specular_map);
+        renderable.diffuse_map.bind_to_slot(0);
+        renderable.specular_map.bind_to_slot(1);
         shader->uniform_1i("material.diffuse", 0);
         shader->uniform_1i("material.specular", 1);
         shader->uniform_1f("material.shininess", 64);
@@ -215,12 +244,13 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
             shader->uniform_vec3("slight.light.ambient", light.ambient);
             shader->uniform_vec3("slight.light.diffuse", light.diffuse);
             shader->uniform_vec3("slight.light.specular", light.specular);
-            shader->uniform_1f("plight.constant", slight.constant);
-            shader->uniform_1f("plight.linear", slight.linear);
-            shader->uniform_1f("plight.quadratic", slight.quadratic);
+            shader->uniform_1f("slight.constant", slight.constant);
+            shader->uniform_1f("slight.linear", slight.linear);
+            shader->uniform_1f("slight.quadratic", slight.quadratic);
             shader->uniform_vec3("slight.position", pos.value);
             shader->uniform_vec3("slight.dir", slight.dir);
             shader->uniform_1f("slight.cut_off", slight.cut_off);
+            shader->uniform_1f("slight.outer_cut_off", slight.outer_cut_off);
         }
 
         auto cam = get_active_camera(registry);

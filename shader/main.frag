@@ -37,6 +37,9 @@ struct Spot_light {
     vec3  dir;
     float cut_off;
     float outer_cut_off;
+    float constant;
+    float linear;
+    float quadratic;
 };
 
 uniform Material material;
@@ -85,7 +88,6 @@ vec3 calc_plights() {
     vec3 diffuse  = plight.light.diffuse * (diff * diffuseMap);
     vec3 specular = plight.light.specular * (spec * specularMap); 
 
-    // Specificly for Point_light
     float dist = length(plight.position - FragPos);
     float attenuation = 1.0 / (plight.constant + plight.linear * dist + plight.quadratic * (dist * dist));
     ambient *= attenuation;
@@ -115,9 +117,8 @@ vec3 calc_slights() {
     vec3 diffuse  = slight.light.diffuse * (diff * diffuseMap);
     vec3 specular = slight.light.specular * (spec * specularMap); 
 
-    // Specificly for Point_light
-    float dist = length(plight.position - FragPos);
-    float attenuation = 1.0 / (plight.constant + plight.linear * dist + plight.quadratic * (dist * dist));
+    float dist = length(slight.position - FragPos);
+    float attenuation = 1.0 / (slight.constant + slight.linear * dist + slight.quadratic * (dist * dist));
     ambient *= attenuation;
     diffuse *= attenuation;
     specular *= attenuation;
@@ -143,8 +144,9 @@ vec3 calc_slights() {
 void main() {
     vec3 resultColor = vec3(0);
     // resultColor += calc_dlights();
-    // resultColor += calc_plights();
+    resultColor += calc_plights();
     resultColor += calc_slights();
 
     FragColor = vec4(resultColor, 1.0);
 }
+

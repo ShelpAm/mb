@@ -1,12 +1,7 @@
 #pragma once
-#include <mb/camera.h>
 #include <mb/game.h>
-#include <mb/shader-program.h>
 
-#include <entt/entt.hpp>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <string>
 
 class App {
   public:

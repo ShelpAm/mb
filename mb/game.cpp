@@ -1,44 +1,12 @@
 #include <mb/game.h>
 
 #include <mb/components.h>
-#include <mb/generate-terrain-mesh.h>
+#include <mb/font.h>
+#include <mb/generate-mesh.h>
 #include <mb/lights.h>
 #include <mb/systems.h>
+#include <mb/texture.h>
 #include <mb/troop.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
-GLuint load_texture(char const *path)
-{
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    check_gl_errors();
-
-    int width;
-    int height;
-    int channels;
-    stbi_set_flip_vertically_on_load(1);
-    unsigned char *data = stbi_load(path, &width, &height, &channels, 0);
-    if (data == nullptr) {
-        spdlog::error("Failed find {}", path);
-        throw std::runtime_error(std::format("failed find {}", path));
-    }
-    GLenum format = channels == 3 ? GL_RGB : GL_RGBA;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, format,
-                 GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    check_gl_errors();
-    stbi_image_free(data);
-    return texture;
-}
 
 Game::Game(int width, int height)
     : width_{width}, height_{height},
@@ -46,7 +14,11 @@ Game::Game(int width, int height)
           glm::radians(45.F),
           static_cast<float>(width) / static_cast<float>(height), .1F, 300.F)},
       shader_("./shader/main.vert", "./shader/main.frag"),
-      light_cube_shader_("./shader/main.vert", "./shader/light.frag")
+      light_cube_shader_("./shader/main.vert", "./shader/light.frag"),
+      font_shader_("./shader/font.vert", "./shader/font.frag"),
+      font_("/home/shelpam/.local/share/fonts/Monaspace/"
+            "MonaspaceNeon-Regular.otf"),
+      ui_(width, height, &font_, &font_shader_)
 {
     windowresize_input(width, height);
 }
@@ -55,58 +27,9 @@ void Game::init_world()
 {
     auto &reg = registry_;
 
-    std::vector<float> vertices{
-        // Back face (z = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
-
-        // Front face (z = 0.5)
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
-
-        // Left face (x = -0.5)
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
-        -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // Top-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // Bottom-front
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
-
-        // Right face (x = 0.5)
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
-        0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // Top-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,  // Bottom-front
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
-
-        // Bottom face (y = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-
-        // Top face (y = 0.5)
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f  // Back-left
-    };
-    std::vector<std::uint32_t> indices(vertices.size() / 8);
-    std::ranges::iota(indices, 0);
-    auto cube = std::make_shared<Mesh>(vertices, indices);
+    auto cube = generate_cube_mesh();
+    auto [terrain_mesh, height] = generate_terrain_mesh(100, 100, 0.05F);
+    height_map_ = height;
 
     // Init camere
     {
@@ -122,6 +45,7 @@ void Game::init_world()
     {
         auto cam_entity = reg.create();
         fpscam = cam_entity;
+        reg.emplace<Fps_cam>(cam_entity);
         reg.emplace<Camera>(
             cam_entity,
             Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
@@ -130,8 +54,8 @@ void Game::init_world()
         reg.emplace<View_mode>(cam_entity, View_mode::First_player);
     }
 
-    GLuint diffuse = load_texture("/home/shelpam/Pictures/wjz.jpg");
-    GLuint specular = load_texture("/home/shelpam/Pictures/wjz.jpg");
+    Texture diffuse("/home/shelpam/Pictures/wjz.jpg");
+    Texture specular("/home/shelpam/Pictures/wjz.jpg");
 
     // Init light cube
     {
@@ -168,8 +92,8 @@ void Game::init_world()
                               .linear = 0.045,
                               .quadratic = 0.0075,
                               .dir = reg.get<Camera>(fpscam).front(),
-                              .cut_off = glm::cos(glm::radians(25.F)),
-                              .outer_cut_off = glm::cos(glm::radians(30.F))});
+                              .cut_off = glm::cos(glm::radians(12.F)),
+                              .outer_cut_off = glm::cos(glm::radians(20.F))});
         reg.emplace<Position>(light, reg.get<Position>(fpscam));
         reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
                                         .diffuse = glm::vec3{0.8},
@@ -204,8 +128,6 @@ void Game::init_world()
                                                    .specular_map = specular});
     }
 
-    auto [terrain_mesh, height] = generate_terrain_mesh(100, 100, 0.05F);
-    height_map_ = height;
     auto terrain_entity = reg.create();
     reg.emplace<Renderable>(terrain_entity,
                             Renderable{.mesh = terrain_mesh,
@@ -227,15 +149,6 @@ void Game::main_loop(GLFWwindow *window)
         double dt = now - last_frame;
         last_frame = now;
 
-        { // Show FPS
-            static double accumu{};
-            accumu += dt;
-            if (accumu >= 1) {
-                auto fps = 1. / dt;
-                spdlog::warn("fps={}", fps);
-                accumu = 0;
-            }
-        }
         { // MANAGE VIEW MODE: Set active camera
             switch (view_mode_) {
             case View_mode::God:
@@ -250,13 +163,25 @@ void Game::main_loop(GLFWwindow *window)
                 cam.is_active = view_mode == view_mode_;
             }
         }
-        ai_system(registry_, static_cast<float>(dt));
         movement_system(registry_, static_cast<float>(dt), height_map_);
         collision_system(registry_, static_cast<float>(now));
+        ai_system(registry_, static_cast<float>(dt));
 
         glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         render_system(registry_, static_cast<float>(now), proj_);
+        { // Show FPS
+            static double accumu{};
+            accumu += dt;
+            static double fps = 0;
+            if (accumu >= 1) {
+                fps = 1. / dt;
+                spdlog::trace("fps={}", fps);
+                accumu = 0;
+            }
+            ui_.render_text(std::format("fps={:.0f}", fps), {0, 0}, 1,
+                            {1, 1, 1});
+        }
         glfwSwapBuffers(window);
     }
     spdlog::info("Exited from main loop");
@@ -439,9 +364,4 @@ void Game::key_input(int key, int scancode, int action, int mods)
         break;
     }
     }
-}
-
-entt::registry &Game::registry()
-{
-    return registry_;
 }
