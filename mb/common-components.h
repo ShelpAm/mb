@@ -24,9 +24,10 @@ struct Velocity {
 };
 
 class Mesh;
+class Model;
 class Shader_program;
 struct Renderable {
-    std::shared_ptr<Mesh> mesh;
+    std::shared_ptr<Model> model;
     Shader_program const *shader;
 };
 
