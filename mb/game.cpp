@@ -5,6 +5,7 @@
 #include <mb/font.h>
 #include <mb/generate-mesh.h>
 #include <mb/lights.h>
+#include <mb/model.h>
 #include <mb/systems.h>
 #include <mb/texture.h>
 #include <mb/troop.h>
@@ -27,9 +28,13 @@ void Game::init_world()
 {
     auto &reg = registry_;
 
-    auto cube = generate_cube_mesh();
-    auto [terrain_mesh, height] = generate_terrain_mesh(100, 100, 0.05F);
+    auto cube = generate_cube_model();
+    auto [terrain_model, height] = generate_terrain_model(100, 100, 0.05F);
     height_map_ = height;
+    auto vex = std::make_shared<Model>("./resources/vex.glb");
+    vex->set_scale(0.03);
+    auto yen = std::make_shared<Model>("./resources/yen.glb");
+    yen->set_scale(0.03);
 
     // Init camere
     {
@@ -60,7 +65,7 @@ void Game::init_world()
         reg.emplace<Position>(light_cube, glm::vec3{30, 20, 40});
         reg.emplace<Renderable>(
             light_cube,
-            Renderable{.mesh = cube, .shader = &light_cube_shader_});
+            Renderable{.model = cube, .shader = &light_cube_shader_});
     }
     { // Init directional light
         auto light = reg.create();
@@ -71,14 +76,14 @@ void Game::init_world()
                                         .specular = glm::vec3{0.5}});
     }
     { // Init point light
-      // auto light = reg.create();
-      // reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
-      //                                             .linear = 0.09F,
-      //                                             .quadratic = 0.032F});
-      // reg.emplace<Position>(light, glm::vec3{30, 20, 40});
-      // reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-      //                                 .diffuse = glm::vec3{0.5},
-      //                                 .specular = glm::vec3{1}});
+        auto light = reg.create();
+        reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
+                                                    .linear = 0.09F,
+                                                    .quadratic = 0.032F});
+        reg.emplace<Position>(light, glm::vec3{30, 20, 40});
+        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
+                                        .diffuse = glm::vec3{0.5},
+                                        .specular = glm::vec3{1}});
     }
     { // Init spot light
         auto light = reg.create();
@@ -103,13 +108,7 @@ void Game::init_world()
     std::vector<Troop_stack> myarmy;
     myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
     reg.emplace<Army>(me, Army{.stacks = myarmy});
-    reg.emplace<Renderable>(me, Renderable{.mesh = cube, .shader = &shader_});
-    reg.emplace<Point_light>(
-        me,
-        Point_light{.constant = 1.0F, .linear = 0.09F, .quadratic = 0.032F});
-    reg.emplace<Light>(me, Light{.ambient = glm::vec3{0.1},
-                                 .diffuse = glm::vec3{0.5},
-                                 .specular = glm::vec3{1}});
+    reg.emplace<Renderable>(me, Renderable{.model = vex, .shader = &shader_});
 
     // Init armies
     {
@@ -138,13 +137,13 @@ void Game::init_world()
             reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20.0f});
 
             reg.emplace<Renderable>(
-                entity, Renderable{.mesh = cube, .shader = &shader_});
+                entity, Renderable{.model = yen, .shader = &shader_});
         }
     }
 
     auto terrain_entity = reg.create();
     reg.emplace<Renderable>(
-        terrain_entity, Renderable{.mesh = terrain_mesh, .shader = &shader_});
+        terrain_entity, Renderable{.model = terrain_model, .shader = &shader_});
     reg.emplace<Position>(terrain_entity, glm::vec3{0.0F, 0.0F, 0.0F});
 }
 

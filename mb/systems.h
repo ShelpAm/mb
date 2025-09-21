@@ -17,6 +17,8 @@ entt::entity get_active_camera(entt::registry &reg);
 
 glm::mat4 get_active_view_mat(entt::registry &reg);
 
+class Shader_program;
+void uniform_lights(entt::registry &reg, Shader_program const &shader);
 void render_system(entt::registry &registry, float now, glm::mat4 const &proj);
 
 void perception_system(entt::registry &registry);

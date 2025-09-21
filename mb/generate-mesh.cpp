@@ -1,16 +1,17 @@
 #include <mb/generate-mesh.h>
 
+#include <mb/model.h>
 #include <mb/perlin.h>
 
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
 
-std::pair<std::shared_ptr<Mesh>, std::vector<std::vector<float>>>
-generate_terrain_mesh(int width, int depth, float scale)
+std::pair<std::shared_ptr<Model>, std::vector<std::vector<float>>>
+generate_terrain_model(int width, int depth, float scale)
 {
     Perlin perlin;
-    std::vector<float> vertices;
+    std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices;
     Texture diffuse("./resources/wjz.jpg");
     Texture specular("./resources/wjz.jpg");
@@ -34,14 +35,8 @@ generate_terrain_mesh(int width, int depth, float scale)
             float u = xf / cols;
             float v = 1 - zf / rows;
 
-            vertices.push_back(xf);   // X
-            vertices.push_back(y);    // Y (高度)
-            vertices.push_back(zf);   // Z
-            vertices.push_back(0.0f); // Placeholder: nx
-            vertices.push_back(0.0f); // Placeholder: ny
-            vertices.push_back(0.0f); // Placeholder: nz
-            vertices.push_back(u);    // U
-            vertices.push_back(v);    // V
+            vertices.push_back(
+                {.position = {xf, y, zf}, .normal = {}, .texcoord = {u, v}});
 
             height[z][x] = y;
         }
@@ -80,10 +75,8 @@ generate_terrain_mesh(int width, int depth, float scale)
             normal = glm::normalize(normal);
 
             // 更新顶点法向量
-            int vertex_idx = (z * (cols + 1) + x) * 8; // 8 floats per vertex
-            vertices[vertex_idx + 3] = normal.x;
-            vertices[vertex_idx + 4] = normal.y;
-            vertices[vertex_idx + 5] = normal.z;
+            int vertex_idx = (z * (cols + 1)) + x; // 8 floats per vertex
+            vertices[vertex_idx].normal = normal;
         }
     }
 
@@ -105,66 +98,137 @@ generate_terrain_mesh(int width, int depth, float scale)
         }
     }
 
-    return std::make_pair(
-        std::make_shared<Mesh>(vertices, indices, diffuse, specular), height);
+    return std::make_pair(std::make_shared<Model>(vertices, indices,
+                                                  std::move(diffuse),
+                                                  std::move(specular)),
+                          height);
 }
 
-std::shared_ptr<Mesh> generate_cube_mesh()
+std::shared_ptr<Model> generate_cube_model()
 {
-    std::vector<float> vertices{
-        // Back face (z = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
+    std::vector<Vertex> vertices{// Back face (z = -0.5)
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {0.0f, 0.0f}}, // Bottom-left
+                                 {.position = {0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {1.0f, 0.0f}}, // Bottom-right
+                                 {.position = {0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {1.0f, 1.0f}}, // Top-right
+                                 {.position = {0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {1.0f, 1.0f}}, // Top-right
+                                 {.position = {-0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {0.0f, 1.0f}}, // Top-left
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, 0.0f, -1.0f},
+                                  .texcoord = {0.0f, 0.0f}}, // Bottom-left
 
-        // Front face (z = 0.5)
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,  // Bottom-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // Top-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,  // Top-left
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom-left
+                                 // Front face (z = 0.5)
+                                 {.position = {-0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {-0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {0.0f, 1.0f}},
+                                 {.position = {-0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, 0.0f, 1.0f},
+                                  .texcoord = {0.0f, 0.0f}},
 
-        // Left face (x = -0.5)
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
-        -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,  // Top-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // Bottom-back
-        -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // Bottom-front
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // Top-front
+                                 // Left face (x = -0.5)
+                                 {.position = {-0.5f, 0.5f, 0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {-0.5f, 0.5f, -0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {-0.5f, -0.5f, 0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {-0.5f, 0.5f, 0.5f},
+                                  .normal = {-1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 1.0f}},
 
-        // Right face (x = 0.5)
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
-        0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // Top-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // Bottom-back
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,  // Bottom-front
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,   // Top-front
+                                 // Right face (x = 0.5)
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
+                                 {.position = {0.5f, 0.5f, -0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {0.5f, -0.5f, -0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {0.5f, -0.5f, -0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {0.5f, -0.5f, 0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {1.0f, 0.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
 
-        // Bottom face (y = -0.5)
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // Back-left
+                                 // Bottom face (y = -0.5)
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
+                                 {.position = {0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {-0.5f, -0.5f, 0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {-0.5f, -0.5f, -0.5f},
+                                  .normal = {0.0f, -1.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
 
-        // Top face (y = 0.5)
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, // Back-left
-        0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Back-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // Front-right
-        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,  // Front-left
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f  // Back-left
-    };
-    std::vector<std::uint32_t> indices(vertices.size() / 8);
+                                 // Top face (y = 0.5)
+                                 {.position = {-0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}},
+                                 {.position = {0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {1.0f, 1.0f}},
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {1.0f, 0.0f}},
+                                 {.position = {-0.5f, 0.5f, 0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {0.0f, 0.0f}},
+                                 {.position = {-0.5f, 0.5f, -0.5f},
+                                  .normal = {0.0f, 1.0f, 0.0f},
+                                  .texcoord = {0.0f, 1.0f}}};
+    std::vector<std::uint32_t> indices(vertices.size());
     std::ranges::iota(indices, 0);
     Texture diffuse("./resources/wjz.jpg");
     Texture specular("./resources/wjz.jpg");
-    auto cube = std::make_shared<Mesh>(vertices, indices, diffuse, specular);
-
-    return cube;
+    return std::make_shared<Model>(vertices, indices, std::move(diffuse),
+                                   std::move(specular));
 }

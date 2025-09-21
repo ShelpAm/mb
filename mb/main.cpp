@@ -3,15 +3,15 @@
 
 int main()
 {
-    try {
-        App::initialize();
-        App app(1600, 900, "Mount & Blade Clone");
-        app.run();
-        App::deinitialize();
-    }
-    catch (std::exception const &e) {
-        spdlog::critical("{}", e.what());
-        return EXIT_FAILURE;
-    }
+    // try {
+    App::initialize();
+    App app(1600, 900, "Mount & Blade Clone");
+    app.run();
+    App::deinitialize();
+    // }
+    // catch (std::exception const &e) {
+    //     spdlog::critical("{}", e.what());
+    //     return EXIT_FAILURE;
+    // }
     return EXIT_SUCCESS;
 }

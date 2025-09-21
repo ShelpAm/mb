@@ -4,6 +4,7 @@
 #include <mb/game.h>
 #include <mb/lights.h>
 #include <mb/mesh.h>
+#include <mb/model.h>
 #include <mb/shader-program.h>
 
 #include <random>
@@ -164,59 +165,71 @@ glm::mat4 get_active_view_mat(entt::registry &reg)
     }
     throw std::runtime_error("couldn't find active camera");
 }
+
+void uniform_lights(entt::registry &reg, Shader_program const &shader)
+{
+    auto dlights = reg.view<Light, Directional_light>();
+    for (auto [entity, light, dlight] : dlights.each()) {
+        shader.uniform_vec3("dlight.light.ambient", light.ambient);
+        shader.uniform_vec3("dlight.light.diffuse", light.diffuse);
+        shader.uniform_vec3("dlight.light.specular", light.specular);
+        shader.uniform_vec3("dlight.dir", dlight.dir);
+    }
+    auto plights = reg.view<Light, Point_light, Position>();
+    for (auto [entity, light, plight, pos] : plights.each()) {
+        constexpr float mul = 8;
+        shader.uniform_vec3("plight.light.ambient", light.ambient * mul);
+        shader.uniform_vec3("plight.light.diffuse", light.diffuse * mul);
+        shader.uniform_vec3("plight.light.specular", light.specular * mul);
+        shader.uniform_vec3("plight.position", pos.value);
+        shader.uniform_1f("plight.constant", plight.constant);
+        shader.uniform_1f("plight.linear", plight.linear);
+        shader.uniform_1f("plight.quadratic", plight.quadratic);
+    }
+    auto slights = reg.view<Light, Spot_light, Position>();
+    for (auto [entity, light, slight, pos] : slights.each()) {
+        shader.uniform_vec3("slight.light.ambient", light.ambient);
+        shader.uniform_vec3("slight.light.diffuse", light.diffuse);
+        shader.uniform_vec3("slight.light.specular", light.specular);
+        shader.uniform_1f("slight.constant", slight.constant);
+        shader.uniform_1f("slight.linear", slight.linear);
+        shader.uniform_1f("slight.quadratic", slight.quadratic);
+        shader.uniform_vec3("slight.position", pos.value);
+        shader.uniform_vec3("slight.dir", slight.dir);
+        shader.uniform_1f("slight.cut_off", slight.cut_off);
+        shader.uniform_1f("slight.outer_cut_off", slight.outer_cut_off);
+    }
+}
+
 void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
 {
     auto view_mat = get_active_view_mat(registry);
 
     auto renderables = registry.view<Renderable, Position>();
     for (auto [entity, renderable, pos] : renderables.each()) {
+        if (renderable.model == nullptr) {
+            spdlog::error("model is nullptr, probably somewhere wrong in code");
+            throw std::runtime_error("check last error");
+        }
         auto const *shader = renderable.shader;
+        if (shader == nullptr) {
+            spdlog::error(
+                "shader is nullptr, probably somewhere wrong in code");
+            throw std::runtime_error("check last error");
+        }
+
         glm::mat4 model(1.);
         model = glm::translate(model, pos.value);
+        model = glm::scale(model, glm::vec3{renderable.model->scale()});
         shader->uniform_mat3("transposed_inverse_model",
                              glm::transpose(glm::inverse(model)));
         shader->uniform_mat4("model", model);
         shader->uniform_mat4("view", view_mat);
         shader->uniform_mat4("projection", proj);
-        renderable.mesh->bind_diffuse_and_specular(0, 1);
-        shader->uniform_1i("material.diffuse", 0);
-        shader->uniform_1i("material.specular", 1);
-        shader->uniform_1f("material.shininess", 64);
-
-        auto dlights = registry.view<Light, Directional_light>();
-        for (auto [entity, light, dlight] : dlights.each()) {
-            shader->uniform_vec3("dlight.light.ambient", light.ambient);
-            shader->uniform_vec3("dlight.light.diffuse", light.diffuse);
-            shader->uniform_vec3("dlight.light.specular", light.specular);
-            shader->uniform_vec3("dlight.dir", dlight.dir);
-        }
-        auto plights = registry.view<Light, Point_light, Position>();
-        for (auto [entity, light, plight, pos] : plights.each()) {
-            constexpr float mul = 8;
-            shader->uniform_vec3("plight.light.ambient", light.ambient * mul);
-            shader->uniform_vec3("plight.light.diffuse", light.diffuse * mul);
-            shader->uniform_vec3("plight.light.specular", light.specular * mul);
-            shader->uniform_vec3("plight.position", pos.value);
-            shader->uniform_1f("plight.constant", plight.constant);
-            shader->uniform_1f("plight.linear", plight.linear);
-            shader->uniform_1f("plight.quadratic", plight.quadratic);
-        }
-        auto slights = registry.view<Light, Spot_light, Position>();
-        for (auto [entity, light, slight, pos] : slights.each()) {
-            shader->uniform_vec3("slight.light.ambient", light.ambient);
-            shader->uniform_vec3("slight.light.diffuse", light.diffuse);
-            shader->uniform_vec3("slight.light.specular", light.specular);
-            shader->uniform_1f("slight.constant", slight.constant);
-            shader->uniform_1f("slight.linear", slight.linear);
-            shader->uniform_1f("slight.quadratic", slight.quadratic);
-            shader->uniform_vec3("slight.position", pos.value);
-            shader->uniform_vec3("slight.dir", slight.dir);
-            shader->uniform_1f("slight.cut_off", slight.cut_off);
-            shader->uniform_1f("slight.outer_cut_off", slight.outer_cut_off);
-        }
-
+        uniform_lights(registry, *shader);
         auto cam = get_active_camera(registry);
         shader->uniform_vec3("cameraPos", registry.get<Position>(cam).value);
-        renderable.mesh->render(*shader);
+
+        renderable.model->render(*shader);
     }
 }
