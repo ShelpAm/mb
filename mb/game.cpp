@@ -1,3 +1,4 @@
+#include "game.h"
 #include <mb/game.h>
 
 #include <mb/components.h>
@@ -149,7 +150,7 @@ void Game::main_loop(GLFWwindow *window)
     double last_frame = glfwGetTime();
 
     spdlog::info("Entering main loop...");
-    while (glfwWindowShouldClose(window) == 0) {
+    while (state_ != Game_state::Should_exit) {
         glfwPollEvents();
 
         double now = glfwGetTime();
@@ -324,6 +325,10 @@ void Game::scroll_input(double xoffset, double yoffset)
 
 void Game::key_input(int key, int scancode, int action, int mods)
 {
+    if (key == GLFW_KEY_ESCAPE) {
+        state_ = Game_state::Should_exit;
+        return;
+    }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         view_mode_ = static_cast<View_mode>(static_cast<int>(view_mode_) ^ 1);
     }

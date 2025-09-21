@@ -8,6 +8,8 @@
 
 enum class View_mode { God, First_player };
 
+enum class Game_state { Normal, Should_exit };
+
 class Game {
     friend class Ui;
 
@@ -41,4 +43,5 @@ class Game {
     Ui ui_;
 
     View_mode view_mode_{View_mode::God};
+    Game_state state_{Game_state::Normal}; 
 };

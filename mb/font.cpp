@@ -13,7 +13,7 @@ Font::Font(std::filesystem::path const &path)
     }
 
     FT_Face face;
-    error = FT_New_Face(library, path.c_str(), 0, &face);
+    error = FT_New_Face(library, path.string().c_str(), 0, &face);
     if (error == FT_Err_Unknown_File_Format) {
         spdlog::error("Unsupported file format");
     }

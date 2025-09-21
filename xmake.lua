@@ -7,7 +7,13 @@ add_rules("mode.debug", "mode.release")
 set_rundir("$(projectdir)")
 
 -- dependencies
-add_requires("assimp", "entt", "freetype", "glfw", "glm", "spdlog", "stb")
+add_requires("assimp")
+add_requires("entt")
+add_requires("freetype", {system = false, configs = {shared = true}})
+add_requires("glfw",     {system = false, configs = {shared = true}})
+add_requires("glm")
+add_requires("spdlog")
+add_requires("stb")
 
 add_cxxflags("-Wmissing-field-initializers")
 
