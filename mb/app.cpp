@@ -58,7 +58,7 @@ GLFWwindow *App::make_window(int width, int height, std::string const &title)
     spdlog::info("Loaded OpenGL {}.{}", GLAD_VERSION_MAJOR(version),
                  GLAD_VERSION_MINOR(version));
 
-    center_glfwwindow();
+    center_glfwwindow(window);
 
     glfwSwapInterval(1); // V-sync
     // 4x MSAA
@@ -108,7 +108,7 @@ void App::key_input(int key, int scancode, int action, int mods)
     game_.key_input(key, scancode, action, mods);
 }
 
-void App::center_glfwwindow() const
+void App::center_glfwwindow(GLFWwindow *window) const
 {
     // Get primary monitor resolution
     GLFWvidmode const *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
@@ -117,15 +117,15 @@ void App::center_glfwwindow() const
 
     // Get window size
     int window_width, window_height;
-    glfwGetWindowSize(window_, &window_width, &window_height);
+    glfwGetWindowSize(window, &window_width, &window_height);
 
     // Compute centered position
     int xpos = (screen_width - window_width) / 2;
     int ypos = (screen_height - window_height) / 2;
 
     // Set window position
-    glfwSetWindowPos(window_, xpos, ypos);
+    glfwSetWindowPos(window, xpos, ypos);
 
     // Show the window
-    glfwShowWindow(window_);
+    glfwShowWindow(window);
 }
