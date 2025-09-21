@@ -33,6 +33,8 @@ void Game::init_world()
     height_map_ = height;
     auto vex = std::make_shared<Model>("./resources/vex.glb");
     vex->set_scale(0.03);
+    auto yen = std::make_shared<Model>("./resources/yen.glb");
+    yen->set_scale(0.03);
 
     // Init camere
     {
@@ -135,7 +137,7 @@ void Game::init_world()
             reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20.0f});
 
             reg.emplace<Renderable>(
-                entity, Renderable{.model = cube, .shader = &shader_});
+                entity, Renderable{.model = yen, .shader = &shader_});
         }
     }
 
