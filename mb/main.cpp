@@ -5,7 +5,7 @@ int main()
 {
     // try {
     App::initialize();
-    App app(1920, 1080, "Mount & Blade Clone");
+    App app(1600, 900, "Mount & Blade Clone");
     app.run();
     App::deinitialize();
     // }
