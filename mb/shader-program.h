@@ -13,8 +13,6 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace fs = std::filesystem;
-
 class Shader_program {
   public:
     Shader_program(Shader_program const &) = delete;
@@ -22,7 +20,8 @@ class Shader_program {
     Shader_program &operator=(Shader_program const &) = delete;
     Shader_program &operator=(Shader_program &&) = delete;
 
-    Shader_program(fs::path const &vert, fs::path const &frag)
+    Shader_program(std::filesystem::path const &vert,
+                   std::filesystem::path const &frag)
         : program_(glCreateProgram())
     {
         spdlog::info("Initializing shader {} from {} and {}...", program_,
@@ -93,9 +92,9 @@ class Shader_program {
     GLuint program_;
     mutable std::unordered_map<std::string, GLint> location_;
 
-    static std::string read_file(fs::path const &path)
+    static std::string read_file(std::filesystem::path const &path)
     {
-        if (!fs::exists(path)) {
+        if (!std::filesystem::exists(path)) {
             throw std::runtime_error(
                 std::format("{} doesn't exist", path.string()));
         }

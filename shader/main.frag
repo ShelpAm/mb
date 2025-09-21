@@ -10,6 +10,8 @@ struct Material {
     sampler2D diffuse;
     sampler2D specular;
     float     shininess;
+    int       num_diff;
+    int       num_spec;
 };
 
 struct Light {
@@ -50,6 +52,22 @@ uniform vec3 cameraPos;
 
 uniform sampler2D uTexture;
 
+vec3 get_diffuse_map(Material mtl) {
+    if (mtl.num_diff != 0) {
+        return vec3(texture(mtl.diffuse, TexCoord));
+    } else {
+        return vec3(1);
+    }
+}
+
+vec3 get_specular_map(Material mtl) {
+    if (mtl.num_spec != 0) {
+        return vec3(texture(mtl.specular, TexCoord));
+    } else {
+        return vec3(1);
+    }
+}
+
 vec3 calc_dlights() {
     vec3 toLight = normalize(-dlight.dir);
     vec3 fromLight = -toLight;
@@ -59,8 +77,9 @@ vec3 calc_dlights() {
     float diff = max(0, dot(toLight, normalize(FragNormal)));
     float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
 
-    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
-    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 diffuseMap = get_diffuse_map(material);
+    vec3 specularMap = get_specular_map(material);
+
     vec3 ambient  = dlight.light.ambient * diffuseMap;
     vec3 diffuse  = dlight.light.diffuse * (diff * diffuseMap);
     vec3 specular = dlight.light.specular * (spec * specularMap); 
@@ -82,8 +101,8 @@ vec3 calc_plights() {
     float diff = max(0, dot(toLight, normalize(FragNormal)));
     float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
 
-    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
-    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 diffuseMap = get_diffuse_map(material);
+    vec3 specularMap = get_specular_map(material);
     vec3 ambient  = plight.light.ambient * diffuseMap;
     vec3 diffuse  = plight.light.diffuse * (diff * diffuseMap);
     vec3 specular = plight.light.specular * (spec * specularMap); 
@@ -111,8 +130,8 @@ vec3 calc_slights() {
     float diff = max(0, dot(toLight, normalize(FragNormal)));
     float spec = pow(max(0, dot(normalize(reflect(fromLight, FragNormal)), toCamera)), material.shininess);
 
-    vec3 diffuseMap  = vec3(texture(material.diffuse, TexCoord));
-    vec3 specularMap = vec3(texture(material.specular, TexCoord));
+    vec3 diffuseMap = get_diffuse_map(material);
+    vec3 specularMap = get_specular_map(material);
     vec3 ambient  = slight.light.ambient * diffuseMap;
     vec3 diffuse  = slight.light.diffuse * (diff * diffuseMap);
     vec3 specular = slight.light.specular * (spec * specularMap); 

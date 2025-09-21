@@ -4,7 +4,9 @@
 #include <memory>
 #include <numeric>
 
-std::pair<std::shared_ptr<Mesh>, std::vector<std::vector<float>>>
-generate_terrain_mesh(int width, int depth, float scale);
+class Model;
 
-std::shared_ptr<Mesh> generate_cube_mesh();
+std::pair<std::shared_ptr<Model>, std::vector<std::vector<float>>>
+generate_terrain_model(int width, int depth, float scale);
+
+std::shared_ptr<Model> generate_cube_model();
