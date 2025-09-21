@@ -50,14 +50,14 @@ class Texture {
     ~Texture()
     {
         if (texture_ != 0) {
-            spdlog::info("Deleting texture {}", texture_);
+            spdlog::debug("Deleting texture {}", texture_);
             glDeleteTextures(1, &texture_);
         }
     }
 
     void bind_to_slot(int slot) const
     {
-        spdlog::info("Binding texture {} to slot {}", texture_, slot);
+        spdlog::trace("Binding texture {} to slot {}", texture_, slot);
         assert(!is_null() && "Using possibly `std::move`d texture");
         assert(slot >= 0);
         glActiveTexture(GL_TEXTURE0 + slot);
@@ -89,7 +89,7 @@ class Texture {
                         GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         check_gl_errors();
-        spdlog::info("Generated texture {}", texture);
+        spdlog::debug("Generated texture {}", texture);
         return texture;
     }
 
