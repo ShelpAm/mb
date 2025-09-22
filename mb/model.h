@@ -37,7 +37,7 @@ class Model {
             scene->mRootNode == nullptr) {
             spdlog::error("Failed to load model {}: {}", path.string(),
                           importer.GetErrorString());
-            return;
+            throw std::runtime_error("check last error");
         }
 
         auto model_parent = path.parent_path();
@@ -60,16 +60,6 @@ class Model {
         for (auto const &mesh : meshes_) {
             mesh.render(shader);
         }
-    }
-
-    void set_scale(float scale)
-    {
-        scale_ = scale;
-    }
-
-    [[nodiscard]] float scale() const
-    {
-        return scale_;
     }
 
   private:
@@ -123,7 +113,7 @@ class Model {
             // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
-        if (mesh->mMaterialIndex < 0) {
+        if (mesh->mMaterialIndex >= scene->mNumMaterials) {
             spdlog::warn("Model doesn't have any material");
             throw std::runtime_error("check last error");
         }
@@ -163,6 +153,8 @@ class Model {
                 }
 
                 // Compressed image format
+                assert(height == 0 && "height should be zero because now ought "
+                                      "to be in compressed image mode");
                 int channels;
                 unsigned char *rgba_data = stbi_load_from_memory(
                     data, width, &width, &height, &channels, 4);
@@ -170,6 +162,7 @@ class Model {
                     spdlog::error(
                         "Failed to read image from memory: MEMORY LAYOUT:");
                     spdlog::error("{}", reinterpret_cast<char const *>(data));
+                    throw std::runtime_error("check last error");
                 }
                 textures_.insert({rel_path.C_Str(),
                                   Texture(width, height, GL_RGBA, rgba_data)});

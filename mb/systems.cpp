@@ -1,11 +1,14 @@
 #include <mb/systems.h>
 
 #include <mb/components.h>
+#include <mb/events.h>
 #include <mb/game.h>
+#include <mb/get-terrain-height.h>
 #include <mb/lights.h>
 #include <mb/mesh.h>
 #include <mb/model.h>
 #include <mb/shader-program.h>
+#include <mb/town.h>
 
 #include <random>
 // FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
@@ -15,13 +18,13 @@ void movement_system(entt::registry &reg, float dt,
                      std::vector<std::vector<float>> const &mountain_height)
 {
     // Grants velocity to those who have will to pathing to somewhere.
-    constexpr double eps{0.5};
+    constexpr double pathing_eps{0.5};
     auto pathings = reg.view<Pathing, Position, Velocity>();
     for (auto [e, pathing, pos, vel] : pathings.each()) {
         // Pathing to x,z
         if (glm::distance(
                 glm::vec2{pathing.destination.x, pathing.destination.z},
-                glm::vec2{pos.value.x, pos.value.z}) > eps) {
+                glm::vec2{pos.value.x, pos.value.z}) > pathing_eps) {
             spdlog::debug("pathing: {} -> ({}, {}, {})", static_cast<int>(e),
                           pos.value.x, pos.value.y, pos.value.z);
             vel.dir = glm::normalize(pathing.destination - pos.value);
@@ -45,6 +48,10 @@ void movement_system(entt::registry &reg, float dt,
     }
 
     // Moves those have velocity to their direction.
+    if (mountain_height.empty() || mountain_height[0].empty()) {
+        throw std::runtime_error(
+            "Invalid mountain height data (size too small)");
+    }
     auto moveables = reg.view<Position, Velocity>().each();
     for (auto [entity, pos, vel] : moveables) {
         if (glm::length(vel.dir) < 1e-5) { // Regarded as still
@@ -52,41 +59,9 @@ void movement_system(entt::registry &reg, float dt,
         }
         pos.value += glm::normalize(vel.dir) * vel.speed * dt;
 
-        if (reg.all_of<Army>(entity) || reg.all_of<Fps_camemra_tag>(entity)) {
-            // 双线性插值计算高度
-            float x = pos.value.x;
-            float z = pos.value.z;
-            int x0 = static_cast<int>(std::floor(x));
-            int z0 = static_cast<int>(std::floor(z));
-            int x1 = x0 + 1;
-            int z1 = z0 + 1;
-
-            // 确保索引在mountain_height范围内
-            x0 = std::clamp(x0, 0,
-                            static_cast<int>(mountain_height[0].size()) - 1);
-            x1 = std::clamp(x1, 0,
-                            static_cast<int>(mountain_height[0].size()) - 1);
-            z0 =
-                std::clamp(z0, 0, static_cast<int>(mountain_height.size()) - 1);
-            z1 =
-                std::clamp(z1, 0, static_cast<int>(mountain_height.size()) - 1);
-
-            // 获取四个邻近格点的高度
-            float h00 = mountain_height[z0][x0];
-            float h10 = mountain_height[z0][x1];
-            float h01 = mountain_height[z1][x0];
-            float h11 = mountain_height[z1][x1];
-
-            // 计算插值权重
-            float t = x - x0; // x方向小数部分
-            float u = z - z0; // z方向小数部分
-
-            // 双线性插值
-            float height = (1.0f - t) * (1.0f - u) * h00 +
-                           t * (1.0f - u) * h10 + (1.0f - t) * u * h01 +
-                           t * u * h11;
-
-            pos.value.y = height + 2.0f; // 保持你的+2偏移
+        if (reg.all_of<Army>(entity)) {
+            pos.value.y =
+                get_terrain_height(mountain_height, pos.value.x, pos.value.z);
         }
 
         auto p = pos.value;
@@ -106,17 +81,19 @@ void movement_system(entt::registry &reg, float dt,
         }
     }
 }
-
-void collision_system(entt::registry &registry, float now)
+void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
+                      float dt)
 {
-    // Pairs in this map won't collide until `value`.
+    // Pairs in this map won't collide remaining time.
     // first entity should be less than second entity.
     static std::map<std::pair<entt::entity, entt::entity>, double>
         collision_free;
 
     // Removes pairs that can perform collision between them.
     for (auto it = collision_free.begin(); it != collision_free.end();) {
-        if (now >= it->second) {
+        auto &remaining = it->second;
+        remaining -= dt;
+        if (remaining <= 0) {
             spdlog::debug("Removing collision_free pair <{} {}>",
                           static_cast<int>(it->first.first),
                           static_cast<int>(it->first.second));
@@ -129,10 +106,10 @@ void collision_system(entt::registry &registry, float now)
 
     // TODO FIXME
     auto armies = registry.view<Army, Position>();
-    for (auto [entt1, arm1, pos1] : armies.each()) {
-        for (auto [entt2, arm2, pos2] : armies.each()) {
-            auto enttpair = std::make_pair(entt1, entt2);
-            if (entt1 >= entt2 || collision_free.contains(enttpair)) {
+    for (auto [e1, arm1, pos1] : armies.each()) {
+        for (auto [e2, arm2, pos2] : armies.each()) {
+            auto enttpair = std::make_pair(e1, e2);
+            if (e1 >= e2 || collision_free.contains(enttpair)) {
                 continue;
             }
             if (glm::length(pos1.value - pos2.value) >
@@ -142,8 +119,13 @@ void collision_system(entt::registry &registry, float now)
             // Collision happens between entt1 and entt2
             spdlog::error("LJF 碰撞");
             spdlog::debug("Collision detected: {} with {}",
-                          static_cast<int>(entt1), static_cast<int>(entt2));
-            collision_free.insert({enttpair, now + 1});
+                          static_cast<int>(e1), static_cast<int>(e2));
+            if (registry.all_of<Local_player_tag>(e1) ||
+                registry.all_of<Local_player_tag>(e2)) {
+                dispatcher.trigger(
+                    Collision_event{.e1 = e1, .e2 = e2, .game = });
+            }
+            collision_free.insert({enttpair, 1});
         }
     }
 }
@@ -166,7 +148,7 @@ glm::mat4 get_active_view_mat(entt::registry &reg)
     throw std::runtime_error("couldn't find active camera");
 }
 
-void uniform_lights(entt::registry &reg, Shader_program const &shader)
+inline void uniform_lights(entt::registry &reg, Shader_program const &shader)
 {
     auto dlights = reg.view<Light, Directional_light>();
     for (auto [entity, light, dlight] : dlights.each()) {
@@ -201,12 +183,12 @@ void uniform_lights(entt::registry &reg, Shader_program const &shader)
     }
 }
 
-void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
+void render_system(entt::registry &registry, glm::mat4 const &proj)
 {
     auto view_mat = get_active_view_mat(registry);
 
     auto renderables = registry.view<Renderable, Position>();
-    for (auto [entity, renderable, pos] : renderables.each()) {
+    for (auto [e, renderable, pos] : renderables.each()) {
         if (renderable.model == nullptr) {
             spdlog::error("model is nullptr, probably somewhere wrong in code");
             throw std::runtime_error("check last error");
@@ -220,7 +202,14 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
 
         glm::mat4 model(1.);
         model = glm::translate(model, pos.value);
-        model = glm::scale(model, glm::vec3{renderable.model->scale()});
+        if (registry.all_of<Transform>(e)) { // Scale and rotation
+            auto const &trans = registry.get<Transform>(e);
+            model = glm::scale(model, trans.scale);
+            auto rotx = glm::angleAxis(trans.rotation.x, glm::vec3{1, 0, 0});
+            auto roty = glm::angleAxis(trans.rotation.y, glm::vec3{0, 1, 0});
+            auto rotz = glm::angleAxis(trans.rotation.z, glm::vec3{0, 0, 1});
+            model = glm::mat4(rotz * roty * rotx) * model;
+        }
         shader->uniform_mat3("transposed_inverse_model",
                              glm::transpose(glm::inverse(model)));
         shader->uniform_mat4("model", model);
@@ -232,4 +221,18 @@ void render_system(entt::registry &registry, float now, glm::mat4 const &proj)
 
         renderable.model->render(*shader);
     }
+}
+
+void town_script(entt::registry &reg, float dt)
+{
+    auto towns = reg.view<Town>();
+    for (auto [e, town] : towns.each()) {
+        town.money += 1 * dt;
+        spdlog::info("Town money: {:.0f}", town.money);
+    }
+}
+
+void collision_script(entt::registry &reg, entt::dispatcher &disp)
+{
+    disp.update<Collision_event>();
 }

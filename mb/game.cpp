@@ -1,13 +1,18 @@
 #include "game.h"
 #include <mb/game.h>
 
+#include <iostream>
 #include <mb/components.h>
+#include <mb/dialog.h>
+#include <mb/events.h>
 #include <mb/font.h>
 #include <mb/generate-mesh.h>
+#include <mb/get-terrain-height.h>
 #include <mb/lights.h>
 #include <mb/model.h>
 #include <mb/systems.h>
 #include <mb/texture.h>
+#include <mb/town.h>
 #include <mb/troop.h>
 
 Game::Game(int width, int height)
@@ -29,86 +34,87 @@ void Game::init_world()
     auto &reg = registry_;
 
     auto cube = generate_cube_model();
-    auto [terrain_model, height] = generate_terrain_model(100, 100, 0.05F);
-    height_map_ = height;
+    auto [terrain_model, height_map] = generate_terrain_model(100, 100, 0.05F);
+    height_map_ = height_map;
     auto vex = std::make_shared<Model>("./resources/vex.glb");
-    vex->set_scale(0.03);
     auto yen = std::make_shared<Model>("./resources/yen.glb");
-    yen->set_scale(0.03);
 
     // Init camere
     {
-        auto cam_entity = reg.create();
-        reg.emplace<Camera>(cam_entity, Camera{.yaw = std::numbers::pi / 2,
-                                               .pitch = -std::numbers::pi / 3,
-                                               .is_active = false});
-        reg.emplace<Position>(cam_entity, Position{.value = {45, 80, 100}});
-        reg.emplace<Velocity>(cam_entity, Velocity{.dir = {}, .speed = 30});
-        reg.emplace<View_mode>(cam_entity, View_mode::God);
+        auto e = reg.create();
+        reg.emplace<Camera>(e, Camera{.yaw = std::numbers::pi / 2,
+                                      .pitch = -std::numbers::pi / 3,
+                                      .is_active = false});
+        reg.emplace<Position>(e, Position{.value = {45, 80, 100}});
+        reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 30});
+        reg.emplace<View_mode>(e, View_mode::God);
     }
     entt::entity fpscam;
     {
-        auto cam_entity = reg.create();
-        fpscam = cam_entity;
-        reg.emplace<Fps_camemra_tag>(cam_entity);
+        auto e = reg.create();
+        fpscam = e;
+        reg.emplace<Fps_camemra_tag>(e);
         reg.emplace<Camera>(
-            cam_entity,
+            e,
             Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
-        reg.emplace<Position>(cam_entity, Position{.value = {29, 18, 50}});
-        reg.emplace<Velocity>(cam_entity, Velocity{.dir = {}, .speed = 5});
-        reg.emplace<View_mode>(cam_entity, View_mode::First_player);
+        reg.emplace<Position>(e, Position{.value = {29, 18, 50}});
+        reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 5});
+        reg.emplace<View_mode>(e, View_mode::First_player);
     }
 
     // Init light cube
     {
-        auto light_cube = reg.create();
-        reg.emplace<Position>(light_cube, glm::vec3{30, 20, 40});
+        auto e = reg.create();
+        reg.emplace<Position>(e, glm::vec3{30, 20, 40});
         reg.emplace<Renderable>(
-            light_cube,
-            Renderable{.model = cube, .shader = &light_cube_shader_});
+            e, Renderable{.model = cube, .shader = &light_cube_shader_});
     }
     { // Init directional light
-        auto light = reg.create();
-        reg.emplace<Directional_light>(light,
+        auto e = reg.create();
+        reg.emplace<Directional_light>(e,
                                        Directional_light{.dir = {-1, -3, 2}});
-        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-                                        .diffuse = glm::vec3{0.5},
-                                        .specular = glm::vec3{0.5}});
+        reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
+                                    .diffuse = glm::vec3{0.5},
+                                    .specular = glm::vec3{0.5}});
     }
     { // Init point light
-        auto light = reg.create();
-        reg.emplace<Point_light>(light, Point_light{.constant = 1.0F,
-                                                    .linear = 0.09F,
-                                                    .quadratic = 0.032F});
-        reg.emplace<Position>(light, glm::vec3{30, 20, 40});
-        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-                                        .diffuse = glm::vec3{0.5},
-                                        .specular = glm::vec3{1}});
+        auto e = reg.create();
+        reg.emplace<Point_light>(e, Point_light{.constant = 1.0F,
+                                                .linear = 0.09F,
+                                                .quadratic = 0.032F});
+        reg.emplace<Position>(e, glm::vec3{30, 20, 40});
+        reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
+                                    .diffuse = glm::vec3{0.5},
+                                    .specular = glm::vec3{1}});
     }
     { // Init spot light
-        auto light = reg.create();
+        auto e = reg.create();
         reg.emplace<Spot_light>(
-            light, Spot_light{.constant = 1,
-                              .linear = 0.045,
-                              .quadratic = 0.0075,
-                              .dir = reg.get<Camera>(fpscam).front(),
-                              .cut_off = glm::cos(glm::radians(12.F)),
-                              .outer_cut_off = glm::cos(glm::radians(20.F))});
-        reg.emplace<Position>(light, reg.get<Position>(fpscam));
-        reg.emplace<Light>(light, Light{.ambient = glm::vec3{0.1},
-                                        .diffuse = glm::vec3{0.8},
-                                        .specular = glm::vec3{1}});
+            e, Spot_light{.constant = 1,
+                          .linear = 0.045,
+                          .quadratic = 0.0075,
+                          .dir = reg.get<Camera>(fpscam).front(),
+                          .cut_off = glm::cos(glm::radians(12.F)),
+                          .outer_cut_off = glm::cos(glm::radians(20.F))});
+        reg.emplace<Position>(e, reg.get<Position>(fpscam));
+        reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
+                                    .diffuse = glm::vec3{0.8},
+                                    .specular = glm::vec3{1}});
     }
 
-    // Init `me`
-    auto me = reg.create();
-    reg.emplace<Local_player_tag>(me);
-    reg.emplace<Position>(me, glm::vec3{28, 17, 47});
-    reg.emplace<Velocity>(me, Velocity{.dir = {0., 0., 0.}, .speed = 25});
-    std::vector<Troop_stack> myarmy;
-    myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
-    reg.emplace<Army>(me, Army{.stacks = myarmy});
-    reg.emplace<Renderable>(me, Renderable{.model = vex, .shader = &shader_});
+    { // Init `me`
+        auto e = reg.create();
+        reg.emplace<Local_player_tag>(e);
+        reg.emplace<Position>(
+            e, glm::vec3{28, get_terrain_height(height_map_, 28, 47), 47});
+        reg.emplace<Velocity>(e, Velocity{.dir = {0., 0., 0.}, .speed = 25});
+        std::vector<Troop_stack> myarmy;
+        myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
+        reg.emplace<Army>(e, Army{.stacks = myarmy});
+        reg.emplace<Renderable>(e,
+                                Renderable{.model = vex, .shader = &shader_});
+        reg.emplace<Transform>(e, Transform{.scale = glm::vec3(0.03)});
+    }
 
     // Init armies
     {
@@ -116,82 +122,80 @@ void Game::init_world()
         std::mt19937 gen(rd());
 
         // 随机位置范围
-        std::uniform_real_distribution<float> posX(0, 100);
-        std::uniform_real_distribution<float> posZ(0, 100);
+        std::uniform_real_distribution<float> pos_x(0, 100);
+        std::uniform_real_distribution<float> pos_z(0, 100);
 
         // 随机队伍规模
-        std::uniform_int_distribution<int> troopSize(1, 5);
+        std::uniform_int_distribution<int> troop_size(1, 5);
 
-        for (int i{}; i != 5; ++i) {
-            auto entity = reg.create();
-            reg.emplace<Ai_tag>(entity);
+        for (int i{}; i != 1; ++i) {
+            auto e = reg.create();
+            reg.emplace<Ai_tag>(e);
 
             std::vector<Troop_stack> army;
-            std::size_t size = troopSize(gen);
+            std::size_t size = troop_size(gen);
             army.push_back(Troop_stack{.size = size, .troop_id = -1UZ});
-            reg.emplace<Army>(entity, Army{.stacks = army});
+            reg.emplace<Army>(e, Army{.stacks = army});
 
-            glm::vec3 pos{posX(gen), 0, posZ(gen)};
-            reg.emplace<Position>(entity, pos);
+            glm::vec3 pos{pos_x(gen), 0, pos_z(gen)};
+            pos.y = get_terrain_height(height_map_, pos.x, pos.z);
+            reg.emplace<Position>(e, pos);
 
-            reg.emplace<Velocity>(entity, Velocity{.dir = {}, .speed = 20.0f});
+            reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 20.0f});
 
             reg.emplace<Renderable>(
-                entity, Renderable{.model = yen, .shader = &shader_});
+                e, Renderable{.model = yen, .shader = &shader_});
+
+            reg.emplace<Transform>(e, Transform{.scale = glm::vec3(0.03)});
         }
     }
+    { // Init towns
+        auto e = reg.create();
+        reg.emplace<Town>(e, Town{.money = 0});
+        reg.emplace<Position>(
+            e, Position{
+                   .value = {30, get_terrain_height(height_map_, 30, 40), 40}});
+        reg.emplace<Renderable>(e,
+                                Renderable{.model = cube, .shader = &shader_});
+        reg.emplace<Transform>(e, Transform{.scale = glm::vec3(8)});
+    }
 
-    auto terrain_entity = reg.create();
-    reg.emplace<Renderable>(
-        terrain_entity, Renderable{.model = terrain_model, .shader = &shader_});
-    reg.emplace<Position>(terrain_entity, glm::vec3{0.0F, 0.0F, 0.0F});
+    { // Init terrain
+        auto e = reg.create();
+        reg.emplace<Renderable>(
+            e, Renderable{.model = terrain_model, .shader = &shader_});
+        reg.emplace<Position>(e, glm::vec3{0.0F, 0.0F, 0.0F});
+    }
 }
 
 void Game::main_loop(GLFWwindow *window)
 {
     double last_frame = glfwGetTime();
 
+    dispatcher_.sink<Collision_event>().connect<process_collision_event>();
+
     spdlog::info("Entering main loop...");
-    while (state_ != Game_state::Should_exit) {
+    // When send close command to window, glfwWindowShouldClose will return true
+    // NOLINTNEXTLINE(readability-implicit-bool-conversion)
+    while (state_ != Game_state::Should_exit &&
+           glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
 
-        double now = glfwGetTime();
-        double dt = now - last_frame;
+        // double now = glfwGetTime();
+        // double dt = now - last_frame;
+        auto now = static_cast<float>(glfwGetTime());
+        auto dt = static_cast<float>(now - last_frame);
         last_frame = now;
 
-        { // MANAGE VIEW MODE: Set active camera
-            switch (view_mode_) {
-            case View_mode::God:
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
-                break;
-            case View_mode::First_player:
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                break;
-            }
-            auto cameras = registry_.view<Camera, View_mode>();
-            for (auto [entity, cam, view_mode] : cameras.each()) {
-                cam.is_active = view_mode == view_mode_;
-            }
-        }
-        movement_system(registry_, static_cast<float>(dt), height_map_);
-        collision_system(registry_, static_cast<float>(now));
-        perception_system(registry_);
-        ai_system(registry_, static_cast<float>(dt));
-
-        glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        render_system(registry_, static_cast<float>(now), proj_);
-        { // Show FPS
-            static double accumu{};
-            accumu += dt;
-            static double fps = 0;
-            if (accumu >= 1) {
-                fps = 1. / dt;
-                spdlog::trace("fps={}", fps);
-                accumu = 0;
-            }
-            ui_.render_text(std::format("fps={:.0f}", fps), {0, 0}, 1,
-                            {1, 1, 1});
+        switch (state_) {
+        case Game_state::Normal:
+            normal(window, dt);
+            break;
+        case Game_state::In_dialog:
+            in_dialog(window);
+            break;
+        case Game_state::Should_exit:
+            break;
         }
         glfwSwapBuffers(window);
     }
@@ -379,4 +383,60 @@ void Game::key_input(int key, int scancode, int action, int mods)
         break;
     }
     }
+}
+
+void Game::normal(GLFWwindow *window, float dt)
+{
+    { // MANAGE VIEW MODE: Set active camera
+        switch (view_mode_) {
+        case View_mode::God:
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
+            break;
+        case View_mode::First_player:
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            break;
+        }
+        auto cameras = registry_.view<Camera, View_mode>();
+        for (auto [entity, cam, view_mode] : cameras.each()) {
+            cam.is_active = view_mode == view_mode_;
+        }
+    }
+    town_script(registry_, dt);
+    movement_system(registry_, dt, height_map_);
+    collision_system(registry_, dispatcher_, dt);
+    collision_script(registry_, dispatcher_);
+    perception_system(registry_);
+    ai_system(registry_, dt);
+
+    glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    render_system(registry_, proj_);
+    { // Show FPS
+        static double accumu{};
+        accumu += dt;
+        static double fps = 0;
+        if (accumu >= 1) {
+            fps = 1. / dt;
+            spdlog::trace("fps={}", fps);
+            accumu = 0;
+        }
+        ui_.render_text(std::format("fps={:.0f}", fps), {0, 0}, 1, {1, 1, 1});
+    }
+}
+
+void Game::in_dialog(GLFWwindow *window)
+{
+    auto dialogs = registry_.view<comp::Dialog>();
+    for (auto [e, dialog] : dialogs.each()) {
+        if (dialog.is_active) {
+            auto const &script = dialog.scripts[dialog.current_line++];
+            ui_.render_text(script, {20, 20}, 3, {0, 255, 255});
+            ui_.render_text("Yes", {20, 160}, 3, {0, 255, 255});
+            ui_.render_text("No", {580, 160}, 3, {0, 255, 255});
+            std::string s;
+            std::cin >> s;
+            spdlog::info("User input: {}", s);
+        }
+    }
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
 }

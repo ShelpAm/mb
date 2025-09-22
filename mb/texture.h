@@ -60,6 +60,11 @@ class Texture {
         spdlog::trace("Binding texture {} to slot {}", texture_, slot);
         assert(!is_null() && "Using possibly `std::move`d texture");
         assert(slot >= 0);
+        GLint max_units;
+        glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max_units);
+        if (slot >= max_units) {
+            spdlog::error("Slot exceeds maximum texture units");
+        }
         glActiveTexture(GL_TEXTURE0 + slot);
         check_gl_errors();
         glBindTexture(GL_TEXTURE_2D, texture_);
