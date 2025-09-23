@@ -4,6 +4,9 @@
 #include <mb/game.h>
 
 #include <glad/gl.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 
@@ -36,6 +39,9 @@ App::App(int width, int height, std::string const &title)
 
 App::~App()
 {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwDestroyWindow(window_);
 }
 
@@ -73,6 +79,22 @@ GLFWwindow *App::make_window(int width, int height, std::string const &title)
     glfwSetFramebufferSizeCallback(window, framebuffersize_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |=
+        ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |=
+        ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(
+        window, true); // Second param install_callback=true will install
+                       // GLFW callbacks and chain to existing ones.
+    ImGui_ImplOpenGL3_Init();
+
     spdlog::info("Initialized window");
     return window;
 }

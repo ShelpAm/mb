@@ -1,6 +1,9 @@
 #include "game.h"
+#include "imgui.h"
 #include <mb/game.h>
 
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 #include <iostream>
 #include <mb/components.h>
 #include <mb/dialog.h>
@@ -184,6 +187,11 @@ void Game::main_loop(GLFWwindow *window)
            glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
 
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow(); // Show demo window! :)
+
         // double now = glfwGetTime();
         // double dt = now - last_frame;
         auto now = static_cast<float>(glfwGetTime());
@@ -200,6 +208,9 @@ void Game::main_loop(GLFWwindow *window)
         case Game_state::Should_exit:
             break;
         }
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     }
     spdlog::info("Exited from main loop");
@@ -444,13 +455,15 @@ void Game::in_dialog(GLFWwindow *window)
     auto dialogs = registry_.view<comp::Dialog>();
     for (auto [e, dialog] : dialogs.each()) {
         if (dialog.is_active) {
-            auto const &script = dialog.scripts[dialog.current_line++];
-            ui_.render_text(script, {20, 20}, 3, {0, 255, 255});
-            ui_.render_text("Yes", {20, 160}, 3, {0, 255, 255});
-            ui_.render_text("No", {580, 160}, 3, {0, 255, 255});
-            std::string s;
-            std::cin >> s;
-            spdlog::info("User input: {}", s);
+            // auto const &script = dialog.scripts[dialog.current_line++];
+            // ui_.render_text(script, {20, 20}, 3, {0, 255, 255});
+            // ui_.render_text("Yes", {20, 160}, 3, {0, 255, 255});
+            // ui_.render_text("No", {580, 160}, 3, {0, 255, 255});
+            // std::string s;
+            // std::cin >> s;
+            // spdlog::info("User input: {}", s);
+            ImGui::Begin("dialog : ");
+            ImGui::Text("%s", dialog.scripts[0].c_str());
         }
     }
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
