@@ -53,5 +53,4 @@ class Game {
     Ui ui_;
 
     View_mode view_mode_{View_mode::God};
-    // Game_state state_{Game_state::Normal};
 };
