@@ -8,6 +8,7 @@
 #include <mb/font.h>
 #include <mb/generate-mesh.h>
 #include <mb/get-terrain-height.h>
+#include <mb/helpers.h>
 #include <mb/lights.h>
 #include <mb/model.h>
 #include <mb/systems.h>
@@ -32,6 +33,8 @@ Game::Game(int width, int height)
 void Game::init_world()
 {
     auto &reg = registry_;
+
+    registry_.emplace<Game_state>(registry_.create(), Game_state::Normal);
 
     auto cube = generate_cube_model();
     auto [terrain_model, height_map] = generate_terrain_model(100, 100, 0.05F);
@@ -177,7 +180,7 @@ void Game::main_loop(GLFWwindow *window)
     spdlog::info("Entering main loop...");
     // When send close command to window, glfwWindowShouldClose will return true
     // NOLINTNEXTLINE(readability-implicit-bool-conversion)
-    while (state_ != Game_state::Should_exit &&
+    while (get_game_state(registry_) != Game_state::Should_exit &&
            glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
 
@@ -187,7 +190,7 @@ void Game::main_loop(GLFWwindow *window)
         auto dt = static_cast<float>(now - last_frame);
         last_frame = now;
 
-        switch (state_) {
+        switch (get_game_state(registry_)) {
         case Game_state::Normal:
             normal(window, dt);
             break;
@@ -214,35 +217,47 @@ void Game::cursorpos_input(double xpos, double ypos)
     spdlog::debug("dx={} dy={}", cursor_pos_delta_.x, cursor_pos_delta_.y);
     cursor_pos_ = {xpos, ypos};
 
-    auto cam_entity = get_active_camera(registry_);
-    switch (view_mode_) {
-    case View_mode::God: {
-        constexpr int edge_width{20};
-        auto &vel{registry_.get<Velocity>(cam_entity)};
-        vel.dir = {};
-        if (xpos < edge_width) {
-            vel.dir += glm::vec3{-1, 0, 0};
+    auto state = get_game_state(registry_);
+    switch (state) {
+    case Game_state::Normal: {
+        auto cam_entity = get_active_camera(registry_);
+        switch (view_mode_) {
+        case View_mode::God: {
+            constexpr int edge_width{20};
+            auto &vel{registry_.get<Velocity>(cam_entity)};
+            vel.dir = {};
+            if (xpos < edge_width) {
+                vel.dir += glm::vec3{-1, 0, 0};
+            }
+            else if (xpos >= width_ - edge_width) {
+                vel.dir += glm::vec3{1, 0, 0};
+            }
+            if (ypos < edge_width) {
+                vel.dir += glm::vec3{0, 0, -1};
+            }
+            else if (ypos >= height_ - edge_width) {
+                vel.dir += glm::vec3{0, 0, 1};
+            }
+            break;
         }
-        else if (xpos >= width_ - edge_width) {
-            vel.dir += glm::vec3{1, 0, 0};
+        case View_mode::First_player: {
+            constexpr float sensitivity{0.03 * std::numbers::pi /
+                                        180}; // 1 degree
+            auto &cam{registry_.get<Camera>(cam_entity)};
+            cam.yaw -= sensitivity * cursor_pos_delta_.x;
+            cam.pitch -= sensitivity * cursor_pos_delta_.y;
+            cam.pitch =
+                glm::clamp<float>(cam.pitch, (-std::numbers::pi / 2) + 1e-5,
+                                  (std::numbers::pi / 2) - 1e-5);
+            break;
         }
-        if (ypos < edge_width) {
-            vel.dir += glm::vec3{0, 0, -1};
-        }
-        else if (ypos >= height_ - edge_width) {
-            vel.dir += glm::vec3{0, 0, 1};
         }
         break;
     }
-    case View_mode::First_player: {
-        constexpr float sensitivity{0.03 * std::numbers::pi / 180}; // 1 degree
-        auto &cam{registry_.get<Camera>(cam_entity)};
-        cam.yaw -= sensitivity * cursor_pos_delta_.x;
-        cam.pitch -= sensitivity * cursor_pos_delta_.y;
-        cam.pitch = glm::clamp<float>(cam.pitch, (-std::numbers::pi / 2) + 1e-5,
-                                      (std::numbers::pi / 2) - 1e-5);
+    case Game_state::In_dialog:
         break;
-    }
+    case Game_state::Should_exit:
+        break;
     }
 }
 
@@ -332,7 +347,7 @@ void Game::scroll_input(double xoffset, double yoffset)
 void Game::key_input(int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE) {
-        state_ = Game_state::Should_exit;
+        get_game_state(registry_) = Game_state::Should_exit;
         return;
     }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {

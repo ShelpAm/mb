@@ -5,7 +5,7 @@
 class Game;
 
 struct Collision_event {
-    Game *game;
+    entt::registry *registry;
     entt::entity e1, e2;
 };
 

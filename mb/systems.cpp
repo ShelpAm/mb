@@ -123,7 +123,7 @@ void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
             if (registry.all_of<Local_player_tag>(e1) ||
                 registry.all_of<Local_player_tag>(e2)) {
                 dispatcher.trigger(
-                    Collision_event{.e1 = e1, .e2 = e2, .game = });
+                    Collision_event{.registry = &registry, .e1 = e1, .e2 = e2});
             }
             collision_free.insert({enttpair, 1});
         }

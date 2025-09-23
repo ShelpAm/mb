@@ -30,8 +30,8 @@ class Model {
         // aiProcess_OptimizeMeshes: does the reverse by trying to join several
         //   meshes into one larger mesh, reducing drawing calls for
         //   optimization.
-        aiScene const *scene{
-            importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs)};
+        aiScene const *scene{importer.ReadFile(
+            path.string(), aiProcess_Triangulate | aiProcess_FlipUVs)};
         if (scene == nullptr ||
             static_cast<bool>(scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
             scene->mRootNode == nullptr) {
