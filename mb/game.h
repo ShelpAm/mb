@@ -25,11 +25,6 @@ class Game {
     void scroll_input(double xoffset, double yoffset);
     void key_input(int key, int scancode, int action, int mods);
 
-    // void set_state(Game_state state)
-    // {
-    //     state_ = state;
-    // }
-
   private:
     void process_events();
 
@@ -53,5 +48,4 @@ class Game {
     Ui ui_;
 
     View_mode view_mode_{View_mode::God};
-    // Game_state state_{Game_state::Normal};
 };

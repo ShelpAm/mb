@@ -3,9 +3,21 @@
 #include <entt/entt.hpp>
 #include <mb/game.h>
 
-inline Game_state &get_game_state(entt::registry &reg)
+entt::entity get_active_camera(entt::registry &reg)
 {
-    auto game_states = reg.view<Game_state>();
-    assert(game_states->size() == 1);
-    return reg.get<Game_state>(game_states.front());
+    for (auto [entity, cam] : reg.view<Camera>().each()) {
+        if (cam.is_active) {
+            return entity;
+        }
+    }
+    throw std::runtime_error("couldn't find active camera");
+}
+glm::mat4 get_active_view_mat(entt::registry &reg)
+{
+    for (auto [entity, cam, pos] : reg.view<Camera, Position>().each()) {
+        if (cam.is_active) {
+            return cam.calc_view_matrix(pos.value);
+        }
+    }
+    throw std::runtime_error("couldn't find active camera");
 }

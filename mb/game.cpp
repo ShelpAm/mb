@@ -1,7 +1,6 @@
-#include "game.h"
-#include "imgui.h"
 #include <mb/game.h>
 
+#include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <iostream>
@@ -37,7 +36,7 @@ void Game::init_world()
 {
     auto &reg = registry_;
 
-    registry_.emplace<Game_state>(registry_.create(), Game_state::Normal);
+    registry_.ctx().emplace<Game_state>(Game_state::Normal);
 
     auto cube = generate_cube_model();
     auto [terrain_model, height_map] = generate_terrain_model(100, 100, 0.05F);
@@ -172,6 +171,14 @@ void Game::init_world()
             e, Renderable{.model = terrain_model, .shader = &shader_});
         reg.emplace<Position>(e, glm::vec3{0.0F, 0.0F, 0.0F});
     }
+
+    { // Init dialog
+        auto e = reg.create();
+        reg.emplace<comp::Dialog>(
+            e, comp::Dialog{.scripts = {"FWW shi shaluan ma?", "YES, he is!"},
+                            .current_line = 0,
+                            .is_active = true});
+    }
 }
 
 void Game::main_loop(GLFWwindow *window)
@@ -183,7 +190,7 @@ void Game::main_loop(GLFWwindow *window)
     spdlog::info("Entering main loop...");
     // When send close command to window, glfwWindowShouldClose will return true
     // NOLINTNEXTLINE(readability-implicit-bool-conversion)
-    while (get_game_state(registry_) != Game_state::Should_exit &&
+    while (registry_.ctx().get<Game_state>() != Game_state::Should_exit &&
            glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
 
@@ -198,7 +205,7 @@ void Game::main_loop(GLFWwindow *window)
         auto dt = static_cast<float>(now - last_frame);
         last_frame = now;
 
-        switch (get_game_state(registry_)) {
+        switch (registry_.ctx().get<Game_state>()) {
         case Game_state::Normal:
             normal(window, dt);
             break;
@@ -225,10 +232,11 @@ void Game::cursorpos_input(double xpos, double ypos)
     }
 
     cursor_pos_delta_ = glm::vec2{xpos, ypos} - cursor_pos_;
-    spdlog::debug("dx={} dy={}", cursor_pos_delta_.x, cursor_pos_delta_.y);
+    spdlog::debug("cursor dx={} dy={}", cursor_pos_delta_.x,
+                  cursor_pos_delta_.y);
     cursor_pos_ = {xpos, ypos};
 
-    auto state = get_game_state(registry_);
+    auto state = registry_.ctx().get<Game_state>();
     switch (state) {
     case Game_state::Normal: {
         auto cam_entity = get_active_camera(registry_);
@@ -294,39 +302,55 @@ inline glm::vec3 screen_to_world(float x_screen, float y_screen, float depth,
 
 void Game::mousebutton_input(int button, int action, int mods)
 {
-    auto view = get_active_view_mat(registry_);
+    auto &state = registry_.ctx().get<Game_state>();
+    switch (state) {
+    case Game_state::Normal: {
+        auto view = get_active_view_mat(registry_);
 
-    switch (view_mode_) {
-    case View_mode::God: {
-        if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-            glm::vec3 ray_start =
-                screen_to_world(cursor_pos_.x, cursor_pos_.y, 0.0F, width_,
-                                height_, view, proj_);
-            glm::vec3 ray_end =
-                screen_to_world(cursor_pos_.x, cursor_pos_.y, 1.0F, width_,
-                                height_, view, proj_);
-            glm::vec3 ray_dir = glm::normalize(ray_end - ray_start);
+        switch (view_mode_) {
+        case View_mode::God: {
+            if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+                glm::vec3 ray_start =
+                    screen_to_world(cursor_pos_.x, cursor_pos_.y, 0.0F, width_,
+                                    height_, view, proj_);
+                glm::vec3 ray_end =
+                    screen_to_world(cursor_pos_.x, cursor_pos_.y, 1.0F, width_,
+                                    height_, view, proj_);
+                glm::vec3 ray_dir = glm::normalize(ray_end - ray_start);
 
-            // Intersect with ground plane y=0
-            float t = -ray_start.y / ray_dir.y;
-            glm::vec3 hit = ray_start + t * ray_dir;
-            for (auto [me] : registry_.view<Local_player_tag>().each()) {
-                registry_.emplace_or_replace<Pathing>(
-                    me,
-                    glm::vec3{hit.x,
-                              height_map_[int(hit.z) % height_map_.size()]
-                                         [int(hit.x) % height_map_[0].size()] +
-                                  2,
-                              hit.z});
+                // Intersect with ground plane y=0
+                float t = -ray_start.y / ray_dir.y;
+                glm::vec3 hit = ray_start + t * ray_dir;
+                for (auto [me] : registry_.view<Local_player_tag>().each()) {
+                    registry_.emplace_or_replace<Pathing>(
+                        me,
+                        glm::vec3{
+                            hit.x,
+                            height_map_[int(hit.z) % height_map_.size()]
+                                       [int(hit.x) % height_map_[0].size()] +
+                                2,
+                            hit.z});
+                }
             }
+            break;
+        }
+        case View_mode::First_player:
+            break;
+        }
+
+        // TODO(shelpam): left to pick
+        break;
+    }
+    case Game_state::In_dialog:
+        spdlog::info("IN DIALOG: MOUSE CLICKED {}", cursor_pos_.x,
+                     cursor_pos_.y);
+        if (true) { // Assume that clicked "EXIT TOWN"
+            state = Game_state::Normal;
         }
         break;
-    }
-    case View_mode::First_player:
+    case Game_state::Should_exit:
         break;
     }
-
-    // TODO(shelpam): left to pick
 }
 
 void Game::windowresize_input(int width, int height)
@@ -358,7 +382,7 @@ void Game::scroll_input(double xoffset, double yoffset)
 void Game::key_input(int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE) {
-        get_game_state(registry_) = Game_state::Should_exit;
+        registry_.ctx().get<Game_state>() = Game_state::Should_exit;
         return;
     }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
@@ -455,13 +479,6 @@ void Game::in_dialog(GLFWwindow *window)
     auto dialogs = registry_.view<comp::Dialog>();
     for (auto [e, dialog] : dialogs.each()) {
         if (dialog.is_active) {
-            // auto const &script = dialog.scripts[dialog.current_line++];
-            // ui_.render_text(script, {20, 20}, 3, {0, 255, 255});
-            // ui_.render_text("Yes", {20, 160}, 3, {0, 255, 255});
-            // ui_.render_text("No", {580, 160}, 3, {0, 255, 255});
-            // std::string s;
-            // std::cin >> s;
-            // spdlog::info("User input: {}", s);
             ImGui::Begin("dialog : ");
             ImGui::Text("%s", dialog.scripts[0].c_str());
         }
