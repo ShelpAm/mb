@@ -90,7 +90,7 @@ Ui::~Ui()
 }
 
 void Ui::render_text(std::string_view s, glm::vec2 pos, float scale,
-                     glm::vec3 color)
+                     glm::vec3 color) const
 {
     // 启用混合以支持透明
     glEnable(GL_BLEND);

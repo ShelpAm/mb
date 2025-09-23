@@ -41,7 +41,7 @@ class Ui {
     ~Ui();
 
     void render_text(std::string_view s, glm::vec2 pos, float scale,
-                     glm::vec3 color = {0, 0, 0});
+                     glm::vec3 color = {0, 0, 0}) const;
 
   private:
     Font const *font_;

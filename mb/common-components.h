@@ -3,6 +3,7 @@
 #include <mb/texture.h>
 
 #include <entt/entt.hpp>
+#include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <memory>
 
@@ -29,6 +30,15 @@ class Shader_program;
 struct Renderable {
     std::shared_ptr<Model> model;
     Shader_program const *shader;
+};
+
+// Position excluded, use struct `Position` instead.
+struct Transform {
+    glm::vec3 scale{1, 1, 1};
+
+    // Three components respectively represent the radians rotated in
+    // anti-clockwise
+    glm::vec3 rotation{0, 0, 0};
 };
 
 struct Ai_tag {};

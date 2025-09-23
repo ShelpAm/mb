@@ -8,7 +8,7 @@
 
 enum class View_mode { God, First_player };
 
-enum class Game_state { Normal, Should_exit };
+enum class Game_state { Normal, In_dialog, Should_exit };
 
 class Game {
     friend class Ui;
@@ -25,8 +25,16 @@ class Game {
     void scroll_input(double xoffset, double yoffset);
     void key_input(int key, int scancode, int action, int mods);
 
+    // void set_state(Game_state state)
+    // {
+    //     state_ = state;
+    // }
+
   private:
     void process_events();
+
+    void normal(GLFWwindow *window, float dt);
+    void in_dialog(GLFWwindow *window);
 
     int width_;
     int height_;
@@ -37,11 +45,13 @@ class Game {
     Shader_program light_cube_shader_;
     Shader_program font_shader_;
     entt::registry registry_;
+    entt::dispatcher dispatcher_;
+
     std::vector<std::vector<float>> height_map_;
 
     Font font_;
     Ui ui_;
 
     View_mode view_mode_{View_mode::God};
-    Game_state state_{Game_state::Normal}; 
+    // Game_state state_{Game_state::Normal};
 };
