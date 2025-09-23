@@ -174,10 +174,18 @@ void Game::init_world()
 
     { // Init dialog
         auto e = reg.create();
+
+        auto fuck = [this]() { spdlog::info("ljf sb"); };
+        comp::Dialog_option fuck_option{.reply = "Fuck", .action = fuck};
+        auto exit = [this]() {
+            registry_.ctx().get<Game_state>() = Game_state::Normal;
+        };
+        comp::Dialog_option exit_option{.reply = "Exit", .action = exit};
         reg.emplace<comp::Dialog>(
             e, comp::Dialog{.scripts = {"FWW shi shaluan ma?", "YES, he is!"},
                             .current_line = 0,
-                            .is_active = true});
+                            .is_active = true,
+                            .options = {fuck_option, exit_option}});
     }
 }
 
@@ -188,16 +196,17 @@ void Game::main_loop(GLFWwindow *window)
     dispatcher_.sink<Collision_event>().connect<process_collision_event>();
 
     spdlog::info("Entering main loop...");
-    // When send close command to window, glfwWindowShouldClose will return true
-    // NOLINTNEXTLINE(readability-implicit-bool-conversion)
+    // When send close command to window, glfwWindowShouldClose will return
+    // true NOLINTNEXTLINE(readability-implicit-bool-conversion)
     while (registry_.ctx().get<Game_state>() != Game_state::Should_exit &&
            glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
+        glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::ShowDemoWindow(); // Show demo window! :)
 
         // double now = glfwGetTime();
         // double dt = now - last_frame;
@@ -216,6 +225,20 @@ void Game::main_loop(GLFWwindow *window)
             break;
         }
 
+        render_system(registry_, proj_);
+        { // Show FPS
+            static double accumu{};
+            accumu += dt;
+            static double fps = 0;
+            if (accumu >= 1) {
+                fps = 1. / dt;
+                spdlog::trace("fps={}", fps);
+                accumu = 0;
+            }
+            ui_.render_text(std::format("fps={:.0f}", fps), {0, 0}, 1,
+                            {1, 1, 1});
+        }
+
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
@@ -225,8 +248,8 @@ void Game::main_loop(GLFWwindow *window)
 
 void Game::cursorpos_input(double xpos, double ypos)
 {
-    // Initialize first cursor_pos_ to its correct value. Otherwise, pos_delta
-    // could be very large in the first cursor moving frame.
+    // Initialize first cursor_pos_ to its correct value. Otherwise,
+    // pos_delta could be very large in the first cursor moving frame.
     if (cursor_pos_ == glm::vec2{-1, -1}) {
         cursor_pos_ = {xpos, ypos};
     }
@@ -342,12 +365,6 @@ void Game::mousebutton_input(int button, int action, int mods)
         break;
     }
     case Game_state::In_dialog:
-        spdlog::info("IN DIALOG: MOUSE CLICKED {}", cursor_pos_.x,
-                     cursor_pos_.y);
-        if (true) { // Assume that clicked "EXIT TOWN"
-            state = Game_state::Normal;
-        }
-        break;
     case Game_state::Should_exit:
         break;
     }
@@ -457,21 +474,6 @@ void Game::normal(GLFWwindow *window, float dt)
     collision_script(registry_, dispatcher_);
     perception_system(registry_);
     ai_system(registry_, dt);
-
-    glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    render_system(registry_, proj_);
-    { // Show FPS
-        static double accumu{};
-        accumu += dt;
-        static double fps = 0;
-        if (accumu >= 1) {
-            fps = 1. / dt;
-            spdlog::trace("fps={}", fps);
-            accumu = 0;
-        }
-        ui_.render_text(std::format("fps={:.0f}", fps), {0, 0}, 1, {1, 1, 1});
-    }
 }
 
 void Game::in_dialog(GLFWwindow *window)
@@ -481,6 +483,12 @@ void Game::in_dialog(GLFWwindow *window)
         if (dialog.is_active) {
             ImGui::Begin("dialog : ");
             ImGui::Text("%s", dialog.scripts[0].c_str());
+            for (auto const &option : dialog.options) {
+                if (ImGui::Button(option.reply.c_str())) {
+                    option.action();
+                }
+            }
+            ImGui::End();
         }
     }
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
