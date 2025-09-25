@@ -13,7 +13,6 @@ struct Dialog_option {
 struct Dialog {
     std::vector<std::string> scripts;
     std::size_t current_line;
-    bool is_active;
     std::vector<Dialog_option> options;
 };
 

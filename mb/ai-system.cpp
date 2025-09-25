@@ -17,16 +17,13 @@ void ai_system(entt::registry &reg, float dt)
 
     auto armies = reg.view<Ai_tag, Army, Position>();
     for (auto [e, army, pos] : armies.each()) {
-        auto *perc = reg.try_get<Perception>(e);
-        if (perc == nullptr) {
-            spdlog::error("Runtime error: perc doesn't exist");
-            continue;
-        }
-
-        if (!perc->viewable_enemies.empty()) {
-            auto target_pos = reg.get<Position>(perc->viewable_enemies.front());
+        if (army.perception.viewable_entity.size() > 1) {
+            auto src = e;
+            auto dest = army.perception.viewable_entity[1];
+            spdlog::debug("{} is tracing {} because target is in its view",
+                          static_cast<int>(src), static_cast<int>(dest));
             reg.emplace_or_replace<Pathing>(
-                e, Pathing{.destination = target_pos.value});
+                e, Pathing{.target_is_entity = true, .dest_e = dest});
         }
         else {
             // Add cooldown component if missing
@@ -52,7 +49,8 @@ void ai_system(entt::registry &reg, float dt)
                     std::uniform_real_distribution<float> dist_y(0, 0);
                     std::uniform_real_distribution<float> dist_z(0.0F, 100.0F);
                     glm::vec3 random_pos{dist_x(gen), dist_y(gen), dist_z(gen)};
-                    reg.emplace<Pathing>(e, random_pos);
+                    reg.emplace<Pathing>(e, Pathing{.target_is_entity = false,
+                                                    .dest_pos = random_pos});
                     spdlog::info("randomly wandering: {}", static_cast<int>(e));
                 }
             }

@@ -8,7 +8,9 @@
 #include <memory>
 
 struct Pathing {
-    glm::vec3 destination;
+    bool target_is_entity;
+    glm::vec3 dest_pos;
+    entt::entity dest_e;
 };
 
 struct Position {
@@ -52,6 +54,7 @@ struct Local_player_tag {};
 
 struct Fps_camemra_tag {};
 
-struct Perception {
-    std::vector<entt::entity> viewable_enemies;
+struct Collidable {
+    // TODO(shelpam): 碰撞箱(也许吧（（
+    // glm::vec3 ;
 };

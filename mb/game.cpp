@@ -29,14 +29,17 @@ Game::Game(int width, int height)
       font_("./resources/MonaspaceNeon-Regular.otf"),
       ui_(width, height, &font_, &font_shader_)
 {
-    windowresize_input(width, height);
+    windowresize_input(width, height); // This sets up glViewport and proj_
 }
 
 void Game::init_world()
 {
     auto &reg = registry_;
 
-    registry_.ctx().emplace<Game_state>(Game_state::Normal);
+    reg.ctx().emplace<Game_state>(Game_state::Normal);
+
+    std::vector<Troop> troops;
+    troops.push_back({.armor = -1, .weapon_damage = -1});
 
     auto cube = generate_cube_model();
     auto [terrain_model, height_map] = generate_terrain_model(100, 100, 0.05F);
@@ -47,9 +50,12 @@ void Game::init_world()
     // Init camere
     {
         auto e = reg.create();
-        reg.emplace<Camera>(e, Camera{.yaw = std::numbers::pi / 2,
-                                      .pitch = -std::numbers::pi / 3,
-                                      .is_active = false});
+        // NOLINTBEGIN
+        Camera cam{.yaw{std::numbers::pi / 2},
+                   .pitch{-std::numbers::pi / 3},
+                   .is_active{}};
+        // NOLINTEND
+        reg.emplace<Camera>(e, cam);
         reg.emplace<Position>(e, Position{.value = {45, 80, 100}});
         reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 30});
         reg.emplace<View_mode>(e, View_mode::God);
@@ -59,9 +65,8 @@ void Game::init_world()
         auto e = reg.create();
         fpscam = e;
         reg.emplace<Fps_camemra_tag>(e);
-        reg.emplace<Camera>(
-            e,
-            Camera{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true});
+        Camera cam{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true};
+        reg.emplace<Camera>(e, cam);
         reg.emplace<Position>(e, Position{.value = {29, 18, 50}});
         reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 5});
         reg.emplace<View_mode>(e, View_mode::First_player);
@@ -71,36 +76,35 @@ void Game::init_world()
     {
         auto e = reg.create();
         reg.emplace<Position>(e, glm::vec3{30, 20, 40});
-        reg.emplace<Renderable>(
-            e, Renderable{.model = cube, .shader = &light_cube_shader_});
+        Renderable renderable{.model = cube, .shader = &light_cube_shader_};
+        reg.emplace<Renderable>(e, renderable);
     }
     { // Init directional light
         auto e = reg.create();
-        reg.emplace<Directional_light>(e,
-                                       Directional_light{.dir = {-1, -3, 2}});
-        reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
-                                    .diffuse = glm::vec3{0.5},
-                                    .specular = glm::vec3{0.5}});
+        Directional_light directional_light{.dir = {-1, -3, 2}};
+        reg.emplace<Directional_light>(e, directional_light);
+        Light light{.ambient{0.1}, .diffuse{0.5}, .specular{0.5}};
+        reg.emplace<Light>(e, light);
     }
     { // Init point light
         auto e = reg.create();
-        reg.emplace<Point_light>(e, Point_light{.constant = 1.0F,
-                                                .linear = 0.09F,
-                                                .quadratic = 0.032F});
+        Point_light pl{.constant = 1.0F, .linear = 0.09F, .quadratic = 0.032F};
+        reg.emplace<Point_light>(e, pl);
         reg.emplace<Position>(e, glm::vec3{30, 20, 40});
-        reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
-                                    .diffuse = glm::vec3{0.5},
-                                    .specular = glm::vec3{1}});
+        Light light{.ambient = glm::vec3{0.1},
+                    .diffuse = glm::vec3{0.5},
+                    .specular = glm::vec3{1}};
+        reg.emplace<Light>(e, light);
     }
     { // Init spot light
         auto e = reg.create();
-        reg.emplace<Spot_light>(
-            e, Spot_light{.constant = 1,
-                          .linear = 0.045,
-                          .quadratic = 0.0075,
-                          .dir = reg.get<Camera>(fpscam).front(),
-                          .cut_off = glm::cos(glm::radians(12.F)),
-                          .outer_cut_off = glm::cos(glm::radians(20.F))});
+        Spot_light spot_light{.constant = 1,
+                              .linear = 0.045,
+                              .quadratic = 0.0075,
+                              .dir = reg.get<Camera>(fpscam).front(),
+                              .cut_off = glm::cos(glm::radians(12.F)),
+                              .outer_cut_off = glm::cos(glm::radians(20.F))};
+        reg.emplace<Spot_light>(e, spot_light);
         reg.emplace<Position>(e, reg.get<Position>(fpscam));
         reg.emplace<Light>(e, Light{.ambient = glm::vec3{0.1},
                                     .diffuse = glm::vec3{0.8},
@@ -110,14 +114,16 @@ void Game::init_world()
     { // Init `me`
         auto e = reg.create();
         reg.emplace<Local_player_tag>(e);
-        reg.emplace<Position>(
-            e, glm::vec3{28, get_terrain_height(height_map_, 28, 47), 47});
+        glm::vec3 pos{28, get_terrain_height(height_map_, 28, 47), 47};
+        reg.emplace<Position>(e, pos);
         reg.emplace<Velocity>(e, Velocity{.dir = {0., 0., 0.}, .speed = 25});
-        std::vector<Troop_stack> myarmy;
-        myarmy.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
-        reg.emplace<Army>(e, Army{.stacks = myarmy});
-        reg.emplace<Renderable>(e,
-                                Renderable{.model = vex, .shader = &shader_});
+        std::vector<Troop_stack> tss;
+        tss.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
+        Army army{.stacks = tss, .perception = {}, .money = 35};
+        reg.emplace<Army>(e, army);
+        reg.emplace<Collidable>(e);
+        Renderable renderable{.model = vex, .shader = &shader_};
+        reg.emplace<Renderable>(e, renderable);
         reg.emplace<Transform>(e, Transform{.scale = glm::vec3(0.03)});
     }
 
@@ -136,32 +142,33 @@ void Game::init_world()
         for (int i{}; i != 1; ++i) {
             auto e = reg.create();
             reg.emplace<Ai_tag>(e);
-
             std::vector<Troop_stack> army;
             std::size_t size = troop_size(gen);
             army.push_back(Troop_stack{.size = size, .troop_id = -1UZ});
-            reg.emplace<Army>(e, Army{.stacks = army});
-
+            reg.emplace<Army>(e, Army{.stacks = army, .perception{}, .money{}});
+            reg.emplace<Collidable>(e);
             glm::vec3 pos{pos_x(gen), 0, pos_z(gen)};
             pos.y = get_terrain_height(height_map_, pos.x, pos.z);
             reg.emplace<Position>(e, pos);
-
             reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 20.0f});
-
-            reg.emplace<Renderable>(
-                e, Renderable{.model = yen, .shader = &shader_});
-
+            Renderable renderable{.model = yen, .shader = &shader_};
+            reg.emplace<Renderable>(e, renderable);
             reg.emplace<Transform>(e, Transform{.scale = glm::vec3(0.03)});
         }
     }
     { // Init towns
         auto e = reg.create();
-        reg.emplace<Town>(e, Town{.money = 0});
-        reg.emplace<Position>(
-            e, Position{
-                   .value = {30, get_terrain_height(height_map_, 30, 40), 40}});
-        reg.emplace<Renderable>(e,
-                                Renderable{.model = cube, .shader = &shader_});
+        reg.emplace<comp::Town_tag>(e);
+        reg.emplace<Collidable>(e);
+        auto apple = reg.create();
+        reg.emplace<comp::Item>(apple, comp::Item{.name{"Apple"}, .price{10}});
+        auto sub = reg.create();
+        reg.emplace<comp::Item>(sub,
+                                comp::Item{.name{"Subject"}, .price{1000}});
+        reg.emplace<comp::Market>(e, comp::Market{.items{apple, sub}});
+        Position pos{.value{30, get_terrain_height(height_map_, 30, 40), 40}};
+        reg.emplace<Position>(e, pos);
+        reg.emplace<Renderable>(e, Renderable{.model{cube}, .shader{&shader_}});
         reg.emplace<Transform>(e, Transform{.scale = glm::vec3(8)});
     }
 
@@ -170,22 +177,6 @@ void Game::init_world()
         reg.emplace<Renderable>(
             e, Renderable{.model = terrain_model, .shader = &shader_});
         reg.emplace<Position>(e, glm::vec3{0.0F, 0.0F, 0.0F});
-    }
-
-    { // Init dialog
-        auto e = reg.create();
-
-        auto fuck = [this]() { spdlog::info("ljf sb"); };
-        comp::Dialog_option fuck_option{.reply = "Fuck", .action = fuck};
-        auto exit = [this]() {
-            registry_.ctx().get<Game_state>() = Game_state::Normal;
-        };
-        comp::Dialog_option exit_option{.reply = "Exit", .action = exit};
-        reg.emplace<comp::Dialog>(
-            e, comp::Dialog{.scripts = {"FWW shi shaluan ma?", "YES, he is!"},
-                            .current_line = 0,
-                            .is_active = true,
-                            .options = {fuck_option, exit_option}});
     }
 }
 
@@ -227,6 +218,7 @@ void Game::main_loop(GLFWwindow *window)
 
         render_system(registry_, proj_);
         { // Show FPS
+            // FIXME: This doesn't change when in dialog
             static double accumu{};
             accumu += dt;
             static double fps = 0;
@@ -323,6 +315,49 @@ inline glm::vec3 screen_to_world(float x_screen, float y_screen, float depth,
     return {worldCoord};
 }
 
+glm::vec3 intersect_heightmap(glm::vec3 const &ray_start,
+                              glm::vec3 const &ray_dir,
+                              std::vector<std::vector<float>> const &height_map)
+{
+    // Step along the ray to find the heightmap intersection
+    float const step_size = 0.5f;       // Adjust for precision vs. performance
+    float const max_distance = 1000.0f; // Max ray distance
+    glm::vec3 pos = ray_start;
+
+    for (float t = 0.0f; t < max_distance; t += step_size) {
+        pos = ray_start + t * ray_dir;
+
+        // Get grid coordinates
+        int x = static_cast<int>(pos.x);
+        int z = static_cast<int>(pos.z);
+
+        // Check if within heightmap bounds
+        if (x >= 0 && x < static_cast<int>(height_map[0].size()) && z >= 0 &&
+            z < static_cast<int>(height_map.size())) {
+            float terrain_height = height_map[z][x];
+            // Check if ray is below or at terrain height
+            if (pos.y <= terrain_height) {
+                // Interpolate for smoother hit point
+                float prev_t = t - step_size;
+                glm::vec3 prev_pos = ray_start + prev_t * ray_dir;
+                float prev_height = prev_pos.y - terrain_height;
+
+                if (prev_t >= 0.0f && prev_height > 0.0f) {
+                    // Linear interpolation to find exact hit
+                    float frac =
+                        prev_height / (prev_height + (terrain_height - pos.y));
+                    glm::vec3 hit = prev_pos + frac * (pos - prev_pos);
+                    return {hit.x, terrain_height, hit.z};
+                }
+                return {pos.x, terrain_height, pos.z};
+            }
+        }
+    }
+
+    // Fallback: Return ray start if no intersection
+    return ray_start;
+}
+
 void Game::mousebutton_input(int button, int action, int mods)
 {
     auto &state = registry_.ctx().get<Game_state>();
@@ -341,18 +376,21 @@ void Game::mousebutton_input(int button, int action, int mods)
                                     height_, view, proj_);
                 glm::vec3 ray_dir = glm::normalize(ray_end - ray_start);
 
-                // Intersect with ground plane y=0
-                float t = -ray_start.y / ray_dir.y;
-                glm::vec3 hit = ray_start + t * ray_dir;
+                // Find ray-heightmap intersection
+                glm::vec3 hit =
+                    intersect_heightmap(ray_start, ray_dir, height_map_);
+
                 for (auto [me] : registry_.view<Local_player_tag>().each()) {
                     registry_.emplace_or_replace<Pathing>(
                         me,
-                        glm::vec3{
-                            hit.x,
-                            height_map_[int(hit.z) % height_map_.size()]
-                                       [int(hit.x) % height_map_[0].size()] +
-                                2,
-                            hit.z});
+                        Pathing{.target_is_entity = false,
+                                .dest_pos = glm::vec3{
+                                    hit.x,
+                                    height_map_[int(hit.z) % height_map_.size()]
+                                               [int(hit.x) %
+                                                height_map_[0].size()] +
+                                        2,
+                                    hit.z}});
                 }
             }
             break;
@@ -383,15 +421,22 @@ void Game::windowresize_input(int width, int height)
 
 void Game::scroll_input(double xoffset, double yoffset)
 {
-    switch (view_mode_) {
-    case View_mode::God: {
-        auto cam_entity = get_active_camera(registry_);
-        auto const &cam = registry_.get<Camera>(cam_entity);
-        registry_.get<Position>(cam_entity).value +=
-            5.F * static_cast<float>(yoffset) * cam.front();
+    switch (registry_.ctx().get<Game_state>()) {
+    case Game_state::Normal:
+        switch (view_mode_) {
+        case View_mode::God: {
+            auto cam_entity = get_active_camera(registry_);
+            auto const &cam = registry_.get<Camera>(cam_entity);
+            registry_.get<Position>(cam_entity).value +=
+                5.F * static_cast<float>(yoffset) * cam.front();
+            break;
+        }
+        case View_mode::First_player:
+            break;
+        }
         break;
-    }
-    case View_mode::First_player:
+    case Game_state::In_dialog:
+    case Game_state::Should_exit:
         break;
     }
 }
@@ -454,42 +499,28 @@ void Game::key_input(int key, int scancode, int action, int mods)
 
 void Game::normal(GLFWwindow *window, float dt)
 {
-    { // MANAGE VIEW MODE: Set active camera
-        switch (view_mode_) {
-        case View_mode::God:
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
-            break;
-        case View_mode::First_player:
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            break;
-        }
-        auto cameras = registry_.view<Camera, View_mode>();
-        for (auto [entity, cam, view_mode] : cameras.each()) {
-            cam.is_active = view_mode == view_mode_;
-        }
-    }
+    camera_script(registry_, window, view_mode_);
     town_script(registry_, dt);
+    perception_system(registry_);
+    ai_system(registry_, dt);
+    pathing_system(registry_);
     movement_system(registry_, dt, height_map_);
     collision_system(registry_, dispatcher_, dt);
     collision_script(registry_, dispatcher_);
-    perception_system(registry_);
-    ai_system(registry_, dt);
 }
 
 void Game::in_dialog(GLFWwindow *window)
 {
     auto dialogs = registry_.view<comp::Dialog>();
     for (auto [e, dialog] : dialogs.each()) {
-        if (dialog.is_active) {
-            ImGui::Begin("dialog : ");
-            ImGui::Text("%s", dialog.scripts[0].c_str());
-            for (auto const &option : dialog.options) {
-                if (ImGui::Button(option.reply.c_str())) {
-                    option.action();
-                }
+        ImGui::Begin("dialog : ");
+        ImGui::Text("%s", dialog.scripts[0].c_str());
+        for (auto const &option : dialog.options) {
+            if (ImGui::Button(option.reply.c_str())) {
+                option.action();
             }
-            ImGui::End();
         }
+        ImGui::End();
     }
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
 }

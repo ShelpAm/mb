@@ -11,8 +11,6 @@ enum class View_mode { God, First_player };
 enum class Game_state { Normal, In_dialog, Should_exit };
 
 class Game {
-    friend class Ui;
-
   public:
     Game(int width, int height);
 

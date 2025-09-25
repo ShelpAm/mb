@@ -6,7 +6,7 @@ class Game;
 
 struct Collision_event {
     entt::registry *registry;
-    entt::entity e1, e2;
+    entt::entity self, other;
 };
 
 void process_collision_event(Collision_event const &e);
