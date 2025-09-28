@@ -5,13 +5,14 @@
 // =======TROOP=========
 
 struct Troop {
-    int armor;
-    int weapon_damage;
+    float health;
+    float armor;
+    float weapon_damage;
 };
 
 struct Troop_stack {
     std::size_t size;
-    std::size_t troop_id;
+    std::string type;
 };
 
 namespace internal {
@@ -27,3 +28,18 @@ struct Army {
     internal::Perception perception;
     float money;
 };
+
+namespace component {
+
+struct Soldier {
+    entt::entity camp;
+    float armor;
+    float health;
+    float weapon_damage;
+};
+
+struct Battle {
+    entt::registry world;
+};
+
+} // namespace component

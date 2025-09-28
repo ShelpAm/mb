@@ -11,6 +11,7 @@ struct Dialog_option {
 };
 
 struct Dialog {
+    std::string title;
     std::vector<std::string> scripts;
     std::size_t current_line;
     std::vector<Dialog_option> options;

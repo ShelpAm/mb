@@ -1,4 +1,5 @@
 #pragma once
+#include <mb/entity-factory.h>
 #include <mb/game.h>
 
 #include <entt/entt.hpp>
@@ -16,7 +17,7 @@ void movement_system(entt::registry &registry, float dt,
                      std::vector<std::vector<float>> const &mountain_height);
 
 void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
-                      float dt);
+                      float dt, Entity_factory const &factory);
 
 class Shader_program;
 void render_system(entt::registry &registry, glm::mat4 const &proj);
@@ -32,3 +33,5 @@ void camera_script(entt::registry &reg, GLFWwindow *window,
                    View_mode current_view_mode);
 
 void pathing_system(entt::registry &reg);
+
+void combat_system(entt::registry &reg, float dt);

@@ -1,4 +1,6 @@
 #pragma once
+#include <mb/components.h>
+
 #include <entt/entt.hpp>
 #include <filesystem>
 #include <spdlog/spdlog.h>
@@ -13,23 +15,34 @@ class Entity_factory {
     // (maybe).
     explicit Entity_factory(entt::registry &registry) : registry_(registry) {}
 
-    void register_prototype(std::string const &name, entt::entity id)
+    // void register_prototype(std::string const &name, entt::entity id)
+    // {
+    //     prototypes_[name] = id;
+    // }
+    //
+    // entt::entity make_entity(std::string const &prototype_name)
+    // {
+    //     auto it = prototypes_.find(prototype_name);
+    //     if (it == prototypes_.end()) {
+    //         spdlog::error("unable to find prototype");
+    //         throw std::runtime_error("check last error");
+    //     }
+    //
+    //     it->second;
+    // }
+
+    void register_troop(std::string const &type, Troop t)
     {
-        prototypes_[name] = id;
+        troops_.insert_or_assign(type, t);
     }
 
-    entt::entity make_entity(std::string const &prototype_name)
+    [[nodiscard]] Troop get_troop(std::string const &type) const
     {
-        auto it = prototypes_.find(prototype_name);
-        if (it == prototypes_.end()) {
-            spdlog::error("unable to find prototype");
-            throw std::runtime_error("check last error");
-        }
-
-        it->second;
+        return troops_.at(type);
     }
 
   private:
     entt::registry &registry_;
-    std::unordered_map<std::string, entt::entity> prototypes_;
+    std::unordered_map<std::string, Troop> troops_;
+    // std::unordered_map<std::string, entt::entity> prototypes_;
 };

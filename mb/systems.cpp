@@ -18,15 +18,6 @@
 void movement_system(entt::registry &reg, float dt,
                      std::vector<std::vector<float>> const &mountain_height)
 {
-    // Simulates movement of sun
-    auto dlights = reg.view<Directional_light>();
-    for (auto [entity, dlight] : dlights.each()) {
-        // Simulate sun movement (circular arc in x-y plane)
-        float angle = glfwGetTime() * 0.5f; // Adjust speed (0.5 radians/sec)
-        dlight.dir = glm::normalize(
-            glm::vec3(cos(angle), -sin(angle), sin(angle) * 0.5f));
-    }
-
     // Moves those have velocity to their direction.
     if (mountain_height.empty() || mountain_height[0].empty()) {
         throw std::runtime_error(
@@ -62,7 +53,7 @@ void movement_system(entt::registry &reg, float dt,
     }
 }
 void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
-                      float dt)
+                      float dt, Entity_factory const &factory)
 {
     // Pairs in this map won't collide remaining time.
     // first entity should be less than second entity.
@@ -107,8 +98,10 @@ void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
                 if (registry.all_of<Local_player_tag>(other)) {
                     std::swap(self, other);
                 }
-                dispatcher.trigger(Collision_event{
-                    .registry = &registry, .self{self}, .other{other}});
+                dispatcher.trigger(Collision_event{.registry = &registry,
+                                                   .self{self},
+                                                   .other{other},
+                                                   .factory{&factory}});
             }
             collision_free.insert({enttpair, 1});
         }

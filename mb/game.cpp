@@ -26,7 +26,7 @@ Game::Game(int width, int height)
       shader_("./shader/main.vert", "./shader/main.frag"),
       light_cube_shader_("./shader/main.vert", "./shader/light.frag"),
       font_shader_("./shader/font.vert", "./shader/font.frag"),
-      font_("./resources/MonaspaceNeon-Regular.otf"),
+      factory_(registry_), font_("./resources/MonaspaceNeon-Regular.otf"),
       ui_(width, height, &font_, &font_shader_)
 {
     windowresize_input(width, height); // This sets up glViewport and proj_
@@ -38,14 +38,14 @@ void Game::init_world()
 
     reg.ctx().emplace<Game_state>(Game_state::Normal);
 
-    std::vector<Troop> troops;
-    troops.push_back({.armor = -1, .weapon_damage = -1});
-
     auto cube = generate_cube_model();
     auto [terrain_model, height_map] = generate_terrain_model(100, 100, 0.05F);
     height_map_ = height_map;
     auto vex = std::make_shared<Model>("./resources/vex.glb");
     auto yen = std::make_shared<Model>("./resources/yen.glb");
+
+    factory_.register_troop("刀哥",
+                            Troop{.health{28}, .armor{3}, .weapon_damage{10}});
 
     // Init camere
     {
@@ -56,8 +56,8 @@ void Game::init_world()
                    .is_active{}};
         // NOLINTEND
         reg.emplace<Camera>(e, cam);
-        reg.emplace<Position>(e, Position{.value = {45, 80, 100}});
-        reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 30});
+        reg.emplace<Position>(e, Position{.value{45, 80, 100}});
+        reg.emplace<Velocity>(e, Velocity{.dir{}, .speed = 30});
         reg.emplace<View_mode>(e, View_mode::God);
     }
     entt::entity fpscam;
@@ -67,8 +67,8 @@ void Game::init_world()
         reg.emplace<Fps_camemra_tag>(e);
         Camera cam{.yaw = std::numbers::pi / 2, .pitch = 0, .is_active = true};
         reg.emplace<Camera>(e, cam);
-        reg.emplace<Position>(e, Position{.value = {29, 18, 50}});
-        reg.emplace<Velocity>(e, Velocity{.dir = {}, .speed = 5});
+        reg.emplace<Position>(e, Position{.value{29, 18, 50}});
+        reg.emplace<Velocity>(e, Velocity{.dir{}, .speed = 5});
         reg.emplace<View_mode>(e, View_mode::First_player);
     }
 
@@ -118,7 +118,7 @@ void Game::init_world()
         reg.emplace<Position>(e, pos);
         reg.emplace<Velocity>(e, Velocity{.dir = {0., 0., 0.}, .speed = 25});
         std::vector<Troop_stack> tss;
-        tss.push_back(Troop_stack{.size = 1, .troop_id = -1UZ});
+        tss.push_back(Troop_stack{.size = 1, .type{"刀哥"}});
         Army army{.stacks = tss, .perception = {}, .money = 35};
         reg.emplace<Army>(e, army);
         reg.emplace<Collidable>(e);
@@ -144,7 +144,7 @@ void Game::init_world()
             reg.emplace<Ai_tag>(e);
             std::vector<Troop_stack> army;
             std::size_t size = troop_size(gen);
-            army.push_back(Troop_stack{.size = size, .troop_id = -1UZ});
+            army.push_back(Troop_stack{.size = size, .type{"刀哥"}});
             reg.emplace<Army>(e, Army{.stacks = army, .perception{}, .money{}});
             reg.emplace<Collidable>(e);
             glm::vec3 pos{pos_x(gen), 0, pos_z(gen)};
@@ -207,16 +207,32 @@ void Game::main_loop(GLFWwindow *window)
 
         switch (registry_.ctx().get<Game_state>()) {
         case Game_state::Normal:
-            normal(window, dt);
+            camera_script(registry_, window, view_mode_);
+            town_script(registry_, dt);
+            perception_system(registry_);
+            ai_system(registry_, dt);
+            pathing_system(registry_);
+            movement_system(registry_, dt, height_map_);
+            collision_system(registry_, dispatcher_, dt, factory_);
+            collision_script(registry_, dispatcher_);
+            render_system(registry_, proj_);
             break;
         case Game_state::In_dialog:
             in_dialog(window);
+            render_system(registry_, proj_);
             break;
+        case Game_state::In_battle: {
+            auto battles = registry_.view<comp::Battle>();
+            for (auto [e, battle] : battles.each()) {
+                combat_system(battle.world, dt);
+            }
+            // render_system(battle.world, proj_);
+            break;
+        }
         case Game_state::Should_exit:
             break;
         }
 
-        render_system(registry_, proj_);
         { // Show FPS
             // FIXME: This doesn't change when in dialog
             static double accumu{};
@@ -403,6 +419,9 @@ void Game::mousebutton_input(int button, int action, int mods)
         break;
     }
     case Game_state::In_dialog:
+        break;
+    case Game_state::In_battle:
+        break;
     case Game_state::Should_exit:
         break;
     }
@@ -497,23 +516,11 @@ void Game::key_input(int key, int scancode, int action, int mods)
     }
 }
 
-void Game::normal(GLFWwindow *window, float dt)
-{
-    camera_script(registry_, window, view_mode_);
-    town_script(registry_, dt);
-    perception_system(registry_);
-    ai_system(registry_, dt);
-    pathing_system(registry_);
-    movement_system(registry_, dt, height_map_);
-    collision_system(registry_, dispatcher_, dt);
-    collision_script(registry_, dispatcher_);
-}
-
 void Game::in_dialog(GLFWwindow *window)
 {
     auto dialogs = registry_.view<comp::Dialog>();
     for (auto [e, dialog] : dialogs.each()) {
-        ImGui::Begin("dialog : ");
+        ImGui::Begin(dialog.title.c_str());
         ImGui::Text("%s", dialog.scripts[0].c_str());
         for (auto const &option : dialog.options) {
             if (ImGui::Button(option.reply.c_str())) {

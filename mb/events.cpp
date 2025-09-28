@@ -1,16 +1,53 @@
-#include "spdlog/spdlog.h"
 #include <mb/events.h>
 
-#include <entt/entt.hpp>
+#include <mb/components.h>
 #include <mb/game.h>
 
-comp::Dialog_option make_exit_option(entt::registry &reg, entt::entity dialog_e)
+#include "spdlog/spdlog.h"
+#include <entt/entt.hpp>
+
+inline comp::Dialog_option make_exit_option(entt::registry &reg,
+                                            entt::entity dialog_e)
 {
     auto exit = [&reg, dialog_e]() {
         reg.ctx().get<Game_state>() = Game_state::Normal;
         reg.remove<comp::Dialog>(dialog_e);
     };
     return comp::Dialog_option{.reply = "Exit", .action = exit};
+}
+
+// Start battle: Create soldier entities within a new world
+/// @return  New world registry for combat
+entt::registry start_battle(entt::registry &reg, entt::entity army1,
+                            entt::entity army2, Entity_factory const *facotry)
+{
+    auto &state = reg.ctx().get<Game_state>();
+    if (state != Game_state::Normal) {
+        throw std::logic_error("shouldn be in normal state");
+    }
+    state = Game_state::In_battle;
+
+    entt::registry battle;
+    auto make_soldiers = [&reg, &battle, facotry](entt::entity army_e,
+                                                  glm::vec3 basepos) {
+        auto const &army = reg.get<Army>(army_e);
+        for (auto const &stack : army.stacks) {
+            auto const &troop = facotry->get_troop(stack.type);
+            for (auto i : std::views::iota(stack.size)) {
+                auto soldier = battle.create();
+                comp::Soldier attrib{.camp{army_e},
+                                     .armor{troop.armor},
+                                     .health{troop.health},
+                                     .weapon_damage{troop.weapon_damage}};
+                battle.emplace<comp::Soldier>(soldier, attrib);
+                battle.emplace<Position>(soldier, Position{.value{basepos}});
+            }
+        }
+    };
+
+    make_soldiers(army1, glm::vec3{10, 0, 10});
+    make_soldiers(army2, glm::vec3{0, 0, 0});
+    return battle;
 }
 
 void process_collision_event(Collision_event const &e)
@@ -26,12 +63,19 @@ void process_collision_event(Collision_event const &e)
     // Collides with Army or Town?
     if (e.registry->all_of<Army>(e.other)) {
         // Creates army dialogs
-        auto out_of_my_way = []() { spdlog::info("ljf sb"); };
+        auto out_of_my_way = [&e]() {
+            auto newreg = start_battle(*e.registry, e.self, e.other, e.factory);
+            comp::Battle battle{.world{std::move(newreg)}};
+            e.registry->emplace<comp::Battle>(e.registry->create(),
+                                              std::move(battle));
+            spdlog::info("Go into battle");
+        };
         comp::Dialog_option fuck_option{.reply = "Out of my way!",
                                         .action = out_of_my_way};
         options.push_back(fuck_option);
         options.push_back(make_exit_option(*e.registry, dialog_e));
         comp::Dialog dialog{
+            .title{"You are faced with 强盗"},
             .scripts{"I'm here to block you way! Surrender now!"},
             .current_line = 0,
             .options{std::move(options)}};
@@ -53,7 +97,8 @@ void process_collision_event(Collision_event const &e)
             options.push_back(opt);
         }
         options.push_back(make_exit_option(*e.registry, dialog_e));
-        comp::Dialog dialog{.scripts{"What do you want?"},
+        comp::Dialog dialog{.title{"Market"},
+                            .scripts{"What do you want?"},
                             .current_line = 0,
                             .options{std::move(options)}};
         e.registry->emplace<comp::Dialog>(dialog_e, dialog);

@@ -1,4 +1,5 @@
 #pragma once
+#include <mb/entity-factory.h>
 #include <mb/font.h>
 #include <mb/shader-program.h>
 
@@ -6,9 +7,14 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-enum class View_mode { God, First_player };
+enum class View_mode : std::uint8_t { God, First_player };
 
-enum class Game_state { Normal, In_dialog, Should_exit };
+enum class Game_state : std::uint8_t {
+    Normal,
+    In_battle,
+    In_dialog,
+    Should_exit
+};
 
 class Game {
   public:
@@ -31,7 +37,6 @@ class Game {
   private:
     void process_events();
 
-    void normal(GLFWwindow *window, float dt);
     void in_dialog(GLFWwindow *window);
 
     int width_;
@@ -43,7 +48,9 @@ class Game {
     Shader_program light_cube_shader_;
     Shader_program font_shader_;
     entt::registry registry_;
+    std::vector<entt::registry> battles_;
     entt::dispatcher dispatcher_;
+    Entity_factory factory_;
 
     std::vector<std::vector<float>> height_map_;
 
