@@ -1,5 +1,6 @@
-#include <mb/components.h>
-#include <mb/systems.h>
+#include <mb/systems/systems.h>
+
+#include <mb/components/components.h>
 
 void perception_system(entt::registry &registry)
 {

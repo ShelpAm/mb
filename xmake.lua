@@ -20,7 +20,7 @@ add_cxxflags("-Wmissing-field-initializers")
 
 target("mountblade-clone")
     set_kind("binary")
-    add_files("mb/*.cpp")
+    add_files("mb/**.cpp")
     add_headerfiles("mb/*.h")
     add_deps("glad")
     add_packages("assimp", "entt", "freetype", "glfw", "glm", "imgui", "spdlog", "stb")

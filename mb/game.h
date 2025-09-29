@@ -1,4 +1,5 @@
 #pragma once
+#include <mb/components/components.h>
 #include <mb/entity-factory.h>
 #include <mb/font.h>
 #include <mb/shader-program.h>

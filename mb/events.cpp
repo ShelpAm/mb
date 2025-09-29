@@ -1,6 +1,6 @@
 #include <mb/events.h>
 
-#include <mb/components.h>
+#include <mb/components/components.h>
 #include <mb/game.h>
 
 #include "spdlog/spdlog.h"
@@ -16,16 +16,12 @@ inline comp::Dialog_option make_exit_option(entt::registry &reg,
     return comp::Dialog_option{.reply = "Exit", .action = exit};
 }
 
-// Start battle: Create soldier entities within a new world
+// Start battle: Creates soldier entities within a new world
 /// @return  New world registry for combat
 entt::registry start_battle(entt::registry &reg, entt::entity army1,
                             entt::entity army2, Entity_factory const *facotry)
 {
-    auto &state = reg.ctx().get<Game_state>();
-    if (state != Game_state::Normal) {
-        throw std::logic_error("shouldn be in normal state");
-    }
-    state = Game_state::In_battle;
+    reg.ctx().get<Game_state>() = Game_state::In_battle;
 
     entt::registry battle;
     auto make_soldiers = [&reg, &battle, facotry](entt::entity army_e,
@@ -33,7 +29,8 @@ entt::registry start_battle(entt::registry &reg, entt::entity army1,
         auto const &army = reg.get<Army>(army_e);
         for (auto const &stack : army.stacks) {
             auto const &troop = facotry->get_troop(stack.type);
-            for (auto i : std::views::iota(stack.size)) {
+            spdlog::info("army.stacks.size={}", stack.size);
+            for (auto i : std::views::iota(0UZ, stack.size)) {
                 auto soldier = battle.create();
                 comp::Soldier attrib{.camp{army_e},
                                      .armor{troop.armor},
@@ -52,6 +49,7 @@ entt::registry start_battle(entt::registry &reg, entt::entity army1,
 
 void process_collision_event(Collision_event const &e)
 {
+    spdlog::info("Processing collision event");
     if (e.registry == nullptr) {
         spdlog::error("process_collision_event: e.registry is nullptr");
     }
@@ -63,7 +61,7 @@ void process_collision_event(Collision_event const &e)
     // Collides with Army or Town?
     if (e.registry->all_of<Army>(e.other)) {
         // Creates army dialogs
-        auto out_of_my_way = [&e]() {
+        auto out_of_my_way = [e]() {
             auto newreg = start_battle(*e.registry, e.self, e.other, e.factory);
             comp::Battle battle{.world{std::move(newreg)}};
             e.registry->emplace<comp::Battle>(e.registry->create(),

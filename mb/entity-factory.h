@@ -1,5 +1,5 @@
 #pragma once
-#include <mb/components.h>
+#include <mb/components/components.h>
 
 #include <entt/entt.hpp>
 #include <filesystem>

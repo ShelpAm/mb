@@ -1,22 +1,19 @@
 #include <mb/game.h>
 
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-#include <iostream>
-#include <mb/components.h>
-#include <mb/dialog.h>
+#include <mb/components/components.h>
 #include <mb/events.h>
 #include <mb/font.h>
 #include <mb/generate-mesh.h>
 #include <mb/get-terrain-height.h>
 #include <mb/helpers.h>
-#include <mb/lights.h>
 #include <mb/model.h>
-#include <mb/systems.h>
+#include <mb/systems/systems.h>
 #include <mb/texture.h>
-#include <mb/town.h>
-#include <mb/troop.h>
+
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+#include <iostream>
 
 Game::Game(int width, int height)
     : width_{width}, height_{height},
@@ -211,7 +208,7 @@ void Game::main_loop(GLFWwindow *window)
             town_script(registry_, dt);
             perception_system(registry_);
             ai_system(registry_, dt);
-            pathing_system(registry_);
+            pathing_system(registry_, dispatcher_, factory_);
             movement_system(registry_, dt, height_map_);
             collision_system(registry_, dispatcher_, dt, factory_);
             collision_script(registry_, dispatcher_);

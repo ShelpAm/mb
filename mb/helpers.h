@@ -1,7 +1,7 @@
 #pragma once
 #include <cassert>
 #include <entt/entt.hpp>
-#include <mb/components.h>
+#include <mb/components/components.h>
 #include <mb/game.h>
 
 inline entt::entity get_active_camera(entt::registry &reg)

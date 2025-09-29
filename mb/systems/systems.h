@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 #include <random>
 
-constexpr float view_dist{10};
+constexpr float view_dist{20};
 
 bool chance(float p);
 
@@ -32,6 +32,7 @@ void collision_script(entt::registry &reg, entt::dispatcher &disp);
 void camera_script(entt::registry &reg, GLFWwindow *window,
                    View_mode current_view_mode);
 
-void pathing_system(entt::registry &reg);
+void pathing_system(entt::registry &reg, entt::dispatcher &dispatcher,
+                    Entity_factory const &factory);
 
 void combat_system(entt::registry &reg, float dt);

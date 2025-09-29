@@ -1,5 +1,7 @@
-#include <mb/components.h>
-#include <mb/systems.h>
+#include <mb/systems/systems.h>
+
+#include <mb/components/components.h>
+
 #include <spdlog/spdlog.h>
 
 bool chance(float p)

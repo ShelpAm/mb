@@ -1,4 +1,6 @@
-#include <mb/systems.h>
+#include <mb/systems/systems.h>
+
+#include <mb/events.h>
 
 #include <ranges>
 
@@ -6,7 +8,8 @@
 /// remove pathing for arrived and losing target views.
 ///
 /// @note Depends on perception_system
-void pathing_system(entt::registry &reg)
+void pathing_system(entt::registry &reg, entt::dispatcher &disp,
+                    Entity_factory const &factory)
 {
     constexpr double pathing_eps{0.5};
     auto pathings = reg.view<Army, Pathing, Position, Velocity>();
@@ -39,6 +42,12 @@ void pathing_system(entt::registry &reg)
                           static_cast<int>(e), pos.value.x, pos.value.y,
                           pos.value.z);
             vel.dir = {};
+            if (pathing.target_is_entity) {
+                disp.enqueue(Collision_event{.registry{&reg},
+                                             .self{e},
+                                             .other{pathing.dest_e},
+                                             .factory{&factory}});
+            }
             reg.remove<Pathing>(e);
         }
     }

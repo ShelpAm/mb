@@ -1,15 +1,13 @@
-#include <mb/systems.h>
+#include <mb/systems/systems.h>
 
-#include <mb/components.h>
+#include <mb/components/components.h>
 #include <mb/events.h>
 #include <mb/game.h>
 #include <mb/get-terrain-height.h>
 #include <mb/helpers.h>
-#include <mb/lights.h>
 #include <mb/mesh.h>
 #include <mb/model.h>
 #include <mb/shader-program.h>
-#include <mb/town.h>
 
 #include <random>
 // FIXME: Should be removed: ECS shouldn't depend on particular glfwTime.
@@ -52,7 +50,7 @@ void movement_system(entt::registry &reg, float dt,
         }
     }
 }
-void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
+void collision_system(entt::registry &registry, entt::dispatcher &disp,
                       float dt, Entity_factory const &factory)
 {
     // Pairs in this map won't collide remaining time.
@@ -98,10 +96,10 @@ void collision_system(entt::registry &registry, entt::dispatcher &dispatcher,
                 if (registry.all_of<Local_player_tag>(other)) {
                     std::swap(self, other);
                 }
-                dispatcher.trigger(Collision_event{.registry = &registry,
-                                                   .self{self},
-                                                   .other{other},
-                                                   .factory{&factory}});
+                disp.enqueue(Collision_event{.registry = &registry,
+                                             .self{self},
+                                             .other{other},
+                                             .factory{&factory}});
             }
             collision_free.insert({enttpair, 1});
         }
